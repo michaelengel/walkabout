@@ -1,0 +1,467 @@
+\chapter{Instrumentation of an Interpreter via Specifications}
+\label{ch-genemu-instr}
+
+{\small
+\begin{flushright}
+Design: Cristina, David; Implementation: David; 
+Documentation: David Ung [May 2001], Cristina [Jan 2002]
+\end{flushright}
+}
+
+This chapter describes the specification file format used to automatically 
+add instrumentation code to the \walk\ based emulator (described in 
+Chapter~\ref{ch-genemu}). 
+Example instrumentation files are also given to demonstrate the type of 
+instrumentation that it can create and how it is integrated into the emulator.
+
+
+\section{Instrumentation}
+The goal of this research is to determine an inexpensive and easy to use way 
+to add instrumentation to the emulator.  The type of instrumentation to be 
+added describes ways to identify what sections of the source program are hot 
+(i.e. frequently executed), so that code generation can be done to improve 
+the overall performance of the execution.
+
+Existing tools such as EEL~\cite{Laru95} and ATOM~\cite{Eust95} provide an 
+interface to add code by specifying the level where instrumentation should 
+take place and what to instrument.  
+Such tools reconstructs the application to be instrumented 
+to an intermediate representation in memory and then modifies its structure 
+(through CFGs and basic blocks) to add the instrumentation into the application.
+Finally, the binary is rebuilt and an instrumented version is emitted.
+
+There are two fundamental problems with the approach described above when 
+trying to add instrumentation to the \walk\ emulator:
+
+\begin{enumerate}
+\item When the emulator is running, it is emulating the behaviour of a program. 
+The execution of the program determines which paths to take during runtime and 
+hence indirectly affects which part of the emulator is invoked.  Adding 
+instrumentation to the emulator will instrument the emulator.  
+Although this can indirectly give information about the runtime behaviour of 
+the source program, the information gathered will be more in the scope of the 
+emulator, thus losing emphasis on the source program.  
+In particular to the attempt to find hot traces, instrumentating the emulator 
+may tell us that the function \texttt{executeBNE()} is hot, but the 
+information about which instruction cause this in the source program is 
+not revealed.  
+It is possible to obtain information about the source program through the 
+instrumenting the emulator, but the task is not an easy one.  It requires 
+knowledge about the internal workings of the emulator and makes the works of 
+instrumentation difficult to use.
+
+\item The emulator is a very low level data processor.  Instead of multiple 
+level of abstractions found in existing tools, the only abstraction of the 
+emulator is at the instruction level.  
+This low level abstraction greatly limits the amount of calls that can be 
+made to predefined functions provided by high level instrumentation tools.  
+For example, high level functions such as FOREACH\_EDGE() and FOREACH\_BB().
+\end{enumerate}
+
+To provide a flexible and powerful instrumentation at the instruction level, 
+the emulator itself should provide the instrumentation.  Since the emulator 
+is automatically generated, this motivates the idea of automatically adding 
+instrumentation code as part of the emulator. 
+Being part of the emulator code, the instrumentation has access to variable 
+and locations internal to the emulator.  This approach allows direct control 
+over what to instrument.  The goal is to instrument the source program, not the 
+emulator. 
+
+
+\subsection{Existing instrumentation tools}
+The use of instrumentation provides opportunities in binary editing, emulation,
+observation, program comprehension and optimization.  Although many tools exist
+that can modify binaries, the implementation of the actual code modification 
+are typically fused in detail with the application or executable itself.  
+But several tools exist that provide a high level interface (typically 
+through a set of libraries) to easily access its instrumentation facilities.  
+The following are some examples of such tools:
+
+\begin{enumerate}
+\item Srivastava and Wall's OM system~\cite{Dec94}, a library for binary 
+	modification.  It requires relocation from object files to analyse 
+	control structure and to relocate edited code.
+\item ATOM~\cite{Eust95} provide an interface to the OM system.  
+	Very high level of abstraction, simplifies the writing of tools.
+\item QPT~\cite{Laru94} by Larus and Ball, a profiling and tracing tool.
+\item EEL~\cite{Laru95}, also a library for building tools to analyze and 
+	modify binaries.
+\end{enumerate}
+
+Both EEL and ATOM are large libraries that provide a rich set of routines for 
+instrumentation. 
+Different levels of the abstraction in these tools allows control over what 
+level the tool wants to instrument through calls to those library rountines.  
+The following example EEL code shows the use of the library:
+
+\begin{verbatim}
+executable* exec = new executable("test_program");
+exec->read_contents();
+
+rountine* r;
+FOREACH_ROUTINE (r, exec->rountines()) {
+  cfg* g = r->get_control_graph();
+  bb* b;
+  FOREACH_BB(b, g->blocks()) {
+    edge* e;
+    FOREACH_edge(e, b->succ()) {
+      count_branch(e);
+    } 
+  }
+}
+\end{verbatim}
+
+The types \texttt{executable}, \texttt{rountine}, \texttt{cfg}, \texttt{bb} and 
+\texttt{edge} are data structures provided by the library for different level of
+abstraction of the binary.  The tools simply make calls to library routines 
+such as \texttt{read\_contents()}, \texttt{FOREACH\_BB} and 
+\texttt{get\_control\_graph()}.  The only function that 
+needs to be written by the tool builder is \texttt{count\_branch()}.
+The concept in ATOM is similar to EEL in that the tool builder make uses of 
+library rountine to access the different levels of abstraction in the binary.
+
+
+\section{Instrumentation specification}
+
+The instrumentation code is written in a separate specification file that is 
+linked as part of the emulator at the time of generating the New Jersey 
+Machine Code (NJMC) matching file.
+Code can be added at the instruction level under the \texttt{DEFINITION} 
+section.  
+The list of instructions that you wish to act on is specified as a table.  
+Instrumentation code is then specified for a table by adding relevant code with
+respect to the main body of their emulation rountines.
+For example, if you want to count the number of times a particular set of 
+branches is taken in an X86 program, the instructions to be monitored are 
+specified in a table as follows:
+
+\begin{verbatim}
+DEFINITION
+
+jump32s	[ "JVA", "JVNBE", "JVAE", "JVNB", "JVB", "JVNAE", "JVBE",
+          "JVNA", "JVC", "JVCXZ", "JVE", "JVZ", "JVG", "JVNLE", "JVGE",
+          "JVNL", "JVL", "JVNGE", "JVLE", "JVNG", "JVNC", "JVNE", "JVNZ",
+          "JVNO", "JVNP", "JVPO", "JVNS", "JVO", "JVP", "JVPE", "JVS", 
+          "JMPJVOD" ]
+\end{verbatim}
+
+In order to count occurrences of the branch instructions listed
+in the \texttt{jump32s} table, the semantics of the branch instructions is 
+extended to increment a counter.  This is expressed in the INSTR language
+as follows: 
+
+\begin{verbatim}
+jump32s label
+{
+    increment_counter(SSL(%pc), PARAM(label));
+    SSL_INST_SEMANTICS
+}
+\end{verbatim}
+
+where the function \texttt{increment\_counter} is defined in the 
+\texttt{IMPLEMENTATION\_ROUTINES} section of the specification file, 
+and \texttt{SSL\_INST\_SEMANTICS} refers to the semantics of the instruction 
+as specified in the semantic description file SSL.  
+For illustration purposes, we show the section 
+\texttt{IMPLEMENTATION\_ROUTINES}, where the function 
+\texttt{increment\_counter} is implemented. 
+  
+\begin{smallverbatim}
+IMPLEMENTATION_ROUTINES
+
+#include <map>
+#include <iostream>
+
+// map edge to execution counts
+map< pair<unsigned, unsigned>, int > edge_cnt;
+
+// increments the branch count for edge (addr1, addr2)
+void increment_counter(int addr1, int addr2) {
+    // construct the edge.
+    pair<unsigned, unsigned> edge = 
+            pair<unsigned, unsigned>(addr1, addr2);
+    map< pair<unsigned, unsigned>, int >::iterator i;
+    if ((i = edge_cnt.find(edge)) == edge_cnt.end()) 
+    {
+        // not found in map, add it and set count to 1
+        backedge_cnt[edge] = 1;
+    } else 
+    {
+        (*i).second ++;      // increment counter by 1
+    }
+}
+\end{smallverbatim}
+
+
+To build the instrumented SPARC emulator, the SLED, SSL and the 
+instrumentation file (INSTR) are included as part of the build to generate 
+the matching \texttt{.m} file:
+
+\begin{verbatim}
+tools/genemu -i sparc.backbranches.inst machine/sparc/sparc-core.spec 
+    machine/sparc/sparc.ssl sparcemu.m
+\end{verbatim}
+
+The \texttt{-i} option includes the instrumentation file 
+\texttt{sparc.backbranches.inst} into the build of the SPARC emulator.
+The contents of \texttt{sparc.backbranches.cnt500.inst} is found in the 
+Appendix to this Chapter.
+
+
+\subsection{Syntax of the INSTR Language}
+
+The instrumentation file consists of two main sections:
+\begin{enumerate}
+\item Definition, 
+\item Fetch-execute cycle, and 
+\item Support code.
+\end{enumerate}
+
+The definition section specifies which instructions are to be instrumented and 
+their corresponding instrumentation code.  
+The fetch-execute cycle section specifies what, if any, commands need to 
+be executed at each iteration of the loop. 
+The support code section contains additional code that the program may call 
+as part of instrumentation.  This code is expressed in the C language.  
+The EBNF for the language is: 
+
+\begin{verbatim}
+
+specification:      parts+
+
+parts:              definition | support_code        
+
+definition:	        DEFINITION instrm+
+
+instrm:	            table | semantics
+
+table:              STRING [ SLED_names ]
+
+semantics:          (STRING parameter_list instrument_code)+ 
+                    (FETCHEXECUTE instrument_code)*
+
+parameter_list:	    STRING (, STRING)*
+
+instrument_code:    { (action)* SSL_INSTR_SEM }
+
+support_code:       IMPLEMENTATION_ROUTINES c_code
+
+\end{verbatim}
+
+where \texttt{action} contains any valid C/C++ code written by the user.  
+This piece of code is attached to the instructions specified in the table 
+along with the instruction's semantics.
+The following special symbols may be inserted into \texttt{action}:
+
+\begin{enumerate}
+\item \texttt{SSL\_INST\_SEMANTICS}: stands for the semantics of the 
+	instruction, as described in the SSL specification file, 
+\item \texttt{PARAM({string})}: indicates the value of the 
+	operand \texttt{{string}} of the current instruction.  E.g.
+	\texttt{PARAM(label)} of the \texttt{BA} instruction is the 
+	instruction's first operand.
+\item \texttt{SSL(\%{register name})}: indicates one of the machine 
+	registers specified in the SSL file. E.g. \texttt{SSL(\%pc)} is the 
+	location holding the value of the emulated PC register.
+\end{enumerate}
+
+
+\section{Appendix}
+
+\subsection{Listing of an Instrumentation File}
+
+\begin{smallverbatim}
+# File: sparc.backbranches.cnt50.inst
+# Desc: This file contains the list of instructions and actions 
+#       used for instrumentation.
+#       The file instruments backbranches and invokes the trace 
+#       builder to build hot traces used for optimisation.
+
+DEFINITION
+
+branch [ "BA", "BN", "BNE", "BE", "BG", "BLE", "BGE", "BL",
+         "BGU", "BLEU", "BCC", "BCS", "BPOS", "BNEG", "BVC", "BVS",
+         "BNEA", "BEA", "BGA", "BLEA", "BGEA",
+         "BLA", "BGUA", "BLEUA", "BCCA", "BCSA", "BPOSA",
+         "BNEGA", "BVCA", "BVSA" ]	
+branch label 
+{
+    int oldpc = SSL(%pc)		
+    SSL_INST_SEMANTICS
+  
+    // check back branches
+    if (oldpc > PARAM(label)) {
+        if (trace_mode) {
+            end_build_trace();
+		} else {		
+            // branch is taken
+            if (SSL(%npc) == PARAM(label)) {			
+                increment_counter(oldpc, PARAM(label));
+            }
+        }
+    }
+}
+
+FETCHEXECUTE
+{
+    if (trace_mode) {
+        add_to_trace(SSL(%pc));		
+    }
+    SSL_INST_SEMANTICS
+}
+
+INSTRUMENTATION_ROUTINES
+#include "emu/backbranches.cnt500.cc"
+\end{smallverbatim}
+
+
+\subsection{Listing of Support Code: backbranches.cnt500.cc}
+
+\begin{smallverbatim}
+#include <map>
+#include <list>
+#include <iostream>
+
+// an edge is made up by a pair of addresses (branch_inst, target_inst)
+
+// the upper value that an edge must reach to trigger the building of traces.
+// this is value is incremented by 500 each time start_trace is called.
+int trigger = 500;
+
+// map edge to execution counts
+map< pair<unsigned, unsigned>, int > backedge_cnt;
+
+// informs the emulator whethere it is in trace mode.  If so, 
+// it will add the current instruction at %pc to the trace.
+int trace_mode = 0;
+
+// holds the list of instructions in the current trace
+list<unsigned> trace;	
+
+
+// ***************************************************************************
+// Function definitions
+// ***************************************************************************
+
+// prints the trace to stderr and exit		
+void print_trace() {
+    cerr << "Trace found: " << endl;
+    list<unsigned>::iterator i;
+    for (i = trace.begin(); i != trace.end(); i++) {	
+        cerr << hex << (*i) << endl;
+    }
+    abort();
+}
+
+// signal end of trace and invoke optimizer
+// at the moment it just prints the trace to the screen
+void end_build_trace() {
+    trace_mode = 0;
+    print_trace();
+}
+		
+// add instruction curr_inst to the trace list
+// if curr_inst is the back branch that started trace building, 
+// then trace building
+void add_to_trace(unsigned curr_inst) {
+    trace.push_back(curr_inst);
+    // check to see if it is the end of trace
+    if (trace.front() == curr_inst) {
+        end_build_trace();
+    }
+}
+
+// start building a hot trace from back branch edge
+void start_trace(pair<unsigned, unsigned> edge) {
+    cerr << "Starting trace finding!" << endl;	
+    trace_mode = 1;
+    // increase the trigger count or interate through the entire 
+    // map and reset all counters or just empty the map
+    trigger += 500;
+    trace.clear();
+    // add edge to the current trace
+    trace.push_back(edge.first);
+}
+
+// increments the branch count for edge (addr1, addr2)
+// if count reaches trigger, call start_trace to begin trace building.
+void increment_counter(int addr1, int addr2) {
+    // construct the edge.
+    pair<unsigned, unsigned> edge = 
+                       pair<unsigned, unsigned>(addr1, addr2);
+    map< pair<unsigned, unsigned>, int >::iterator i;
+    if ((i = backedge_cnt.find(edge)) == backedge_cnt.end()) {
+        // not found in map, add it and set count to 1
+        backedge_cnt[edge] = 1;
+    } else {
+        (*i).second ++;              // increment counter by 1
+        if ((*i).second >= trigger) {
+            start_trace(edge);
+        }
+    }
+}
+\end{smallverbatim}
+
+
+\subsection{Sample Output}
+
+Given the specification file in this Appendix, the newly generated 
+\texttt{.m} file will now contain the extra instrumentation code as part 
+of the emulation functions.  For example, the code for the branch always, 
+\texttt{BA}, and the branch not equal, \texttt{BNE} instructions is: 
+
+\begin{smallverbatim}
+void executeBA( sint32_t reloc )
+{
+  int oldpc = regs.r_pc;
+  
+  regs.r_npc = (((1) == (0)) ? regs.r_npc : reloc);
+
+  // check back branches
+  if (oldpc > reloc) {
+    if (trace_mode) {
+        end_build_trace();
+    } else {		
+        if (regs.r_npc == reloc) {			
+            increment_counter(oldpc, reloc);
+        }
+    }
+  }
+}
+
+void executeBNE( sint32_t reloc )
+{
+  int oldpc = regs.r_pc;
+
+  regs.r_npc = (((regs.r_ZF) != (0)) ? regs.r_npc : reloc);
+
+  // check back branches
+  if (oldpc > reloc) {
+    if (trace_mode) {
+        end_build_trace();
+    } else {		
+        if (regs.r_npc == reloc) {			
+            increment_counter(oldpc, reloc);
+        }
+    }
+  }
+}
+
+...
+
+void executeOneInstruction()
+{
+    if (trace_mode) {
+        add_to_trace(regs.r_pc);		
+    }
+
+    sint32_t tmp;
+    tmp = regs.r_pc;
+    regs.r_pc = regs.r_npc;
+    regs.r_npc = ((regs.r_npc) + (4));
+    regs.rd[0] = 0;
+    execute(tmp);
+}
+\end{smallverbatim}
+
+

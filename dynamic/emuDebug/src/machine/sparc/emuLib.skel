@@ -1,0 +1,131 @@
+/*
+ * Copyright (C) 2001, Sun Microsystems, Inc
+ *
+ * See the file "LICENSE.TERMS" for information on usage and
+ * redistribution of this file, and for a DISCLAIMER OF ALL
+ * WARRANTIES.
+ *
+ */
+
+#include "emuProcess.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/mman.h>
+#include <string.h>
+#include "sparcemu.h"
+#include <unistd.h>
+
+extern void executeOneInstruction();
+extern int secondMain(int, char**, char**);
+extern struct RegisterFile * returnReg();
+extern char * mem;
+
+extern char **environ;
+extern struct RegisterFile regs;
+
+JNIEXPORT void JNICALL Java_emuProcess_setBufferNull
+  (JNIEnv * env, jclass klass)
+{
+/*
+    freopen("out.txt", "a+", stdout);
+//    printf("Wow!!");
+    setbuf(stdout, NULL);
+    
+    freopen("err.txt", "a+", stderr);
+    setbuf(stderr, NULL);    
+*/    
+}
+
+
+JNIEXPORT jobject JNICALL Java_emuProcess_returnReg (JNIEnv * env, jclass inClass)
+{
+	jclass regFile;
+	jmethodID mid;
+
+	regFile = env->FindClass("RegFile");
+
+	// mid = env->GetMethodID(regFile, "<init>", "(IIIIIIIIIIIIIIIIII[I)V");
+
+        mid = env->GetMethodID(regFile, "<init>", "(@NATIVEINIT)V");	
+
+
+	@NATIVEARRAY
+	// int arraySize = 32;
+	// jintArray intArray= env->NewIntArray((jsize)arraySize);
+	// env->SetIntArrayRegion((jintArray)intArray, 0,arraySize, regs.rd);
+	
+	return(env->NewObject(regFile, 
+			      mid, 
+			      @NATIVEREG
+			      ));
+
+
+}
+
+JNIEXPORT jint JNICALL Java_emuProcess_secondMain(JNIEnv * env, jclass inClass, jobjectArray jArgs)
+{
+	char ** argv;
+	jint sz = env->GetArrayLength(jArgs);
+
+	
+    argv = (char **)malloc (sizeof(char *) * (sz+2));
+
+    for (int i = 1; i < sz + 1; i++) {
+        argv[i] = (char *)env->GetStringUTFChars(
+            (jstring)env->GetObjectArrayElement(jArgs, i - 1), 0);
+	}
+
+	// sz is an ugly ugly hack that needs to be fixed later
+	// This is due to the path being the first string in argv, which
+	// is not the case in Java
+	argv[sz + 2] = NULL;
+
+	secondMain(sz + 1, argv, environ); 
+
+	return (int)mem;
+}
+
+JNIEXPORT void JNICALL Java_emuProcess_executeOneInstruction(JNIEnv * env, jclass inClass)
+{
+	executeOneInstruction();
+}
+
+JNIEXPORT jint JNICALL Java_emuProcess_returnPC
+  (JNIEnv * env, jclass inClass)
+{
+	return regs.r_pc;
+}
+
+/* JNIEXPORT void JNICALL Java_emuProcess_forkProcess
+  (JNIEnv * env, jclass klass)
+{
+	jclass emuDebug;
+	jmethodID mid;
+
+	pid_t thisPid;
+
+	emuDebug = env->FindClass("emuDebug");
+	mid = env->GetStaticMethodID(emuDebug, "setProcessID", "(I)V");
+
+	thisPid = fork();
+
+	if (thisPid == 0) {
+	//  Child Process
+		emuDebug = env->FindClass("emuDebug");
+		mid = env->GetStaticMethodID(emuDebug, "setProcessID", "(I)V");
+		env->CallStaticVoidMethod(emuDebug, mid, 1);
+
+
+	} 
+	else if (thisPid == -1) {
+		// ERROR!!
+	}
+	else {
+	// Parent Process
+		emuDebug = env->FindClass("emuDebug");
+		mid = env->GetStaticMethodID(emuDebug, "setProcessID", "(I)V");
+		env->CallStaticVoidMethod(emuDebug, mid, 0);
+	}
+
+}
+*/

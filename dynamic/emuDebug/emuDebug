@@ -1,0 +1,14 @@
+#!/proj/walkabout/bin/bash
+#!/usr/bin/bash
+
+export LD_LIBRARY_PATH=./lib:../../disasm:$LD_LIBRARY_PATH
+export CLASSPATH=./bin:../../disasm:$CLASSPATH
+
+java emuDebug $* &
+
+while [ 0 -lt 1 ]
+do
+   java emuProcess $*
+done
+
+

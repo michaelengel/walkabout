@@ -1,0 +1,933 @@
+%
+% 12 Jul 01 - Nathan: Updated to include all the recent changes
+%    May 01 - Bernard: Emulator performance study
+%
+
+\chapter{Emulator Generator}
+\label{ch-genemu}
+
+{\small
+\begin{flushright}
+Design: Nathan, Cristina; Implementation: Nathan; Documentation: Nathan [Apr 01]
+\end{flushright}
+}
+
+This chapter documents the inner-workings of the emulator generator 
+for the \walk\ framework.  It describes design issues and concentrates 
+on interfaces and usage of the emulator generator tool. 
+This chapter documents the initial version of the emulator generator 
+rather than the release version (i.e. it has not been fully updated) 
+[Cristina, Jan 2002]. 
+
+
+\section{Design}
+The main design goals of building an emulator for \walk, were retargetability,
+reuse of existing specifications, and efficiency. This has been achieved by
+making use of an emulator generator, which accepts the SLED and SSL 
+specifications, and outputs source code for an emulator core, in either the
+C or Java language. With the addition of some simple scaffolding, the result 
+is an easily retargetable emulation system.  
+
+Another goal for the emulator generator was to allow users to create 
+emulators without needing to write them in assembler language
+or even know the assembler of the machine where the emulator is to 
+be run. 
+
+
+\section{Using the generator}
+This section explains the way an emulator can be generated, 
+what its interface is and what to know in order to make changes
+to the code generation module. 
+
+
+\subsection{Invocation}
+The emulator generator is called \texttt{genemu} and it is invoked
+in the following way: 
+
+\begin{verbatim}
+genemu [options] <SLED spec file> <SSL spec file> [outputfile]
+Recognized options:
+   -c  output C code [default]
+   -d  disassembler only (do not generate emulator core)
+   -j  output Java code
+\end{verbatim}
+
+
+\subsection{Interface}
+ 
+The generated code exports one fundamental function, 
+\texttt{void executeOneInstruction()}, which completely executes the 
+instruction pointed to by the current PC. 
+The emulator expects a pointer \texttt{mem} to have been
+set up to refer to the start of the emulated program's address space.
+
+The CPU registers are exported as \texttt{regs}, which is a 
+\texttt{RegisterFile} structure (defined in the generated header file). 
+Note that right now it's not always simple to know a-priori how to 
+access a given register from outside the core, although \texttt{\%pc} 
+should always be \texttt{regs.r\_pc}. 
+
+If the SSL specification makes use of traps, the calling code must also define
+a callback, of the form
+
+\begin{verbatim}
+   void doTrap( bool cond, int trapNumber );
+\end{verbatim}
+where \texttt{cond} indicates whether the trap should execute, and 
+\texttt{trapNumber} gives the trap id.
+
+A minimal use might look something like
+\begin{verbatim}
+char *mem;
+
+int main()
+{
+    mem = loadBinary();
+    regs.r_pc = getStartAddress();
+    run(); /* Supplied by generated emulator */
+}
+\end{verbatim}
+
+
+\subsection{Making the specifications work for you}
+In order to do what it's supposed to do, the emulator generator relies on
+certain correlations between the SLED and SSL files that it's using. This
+section documents those requirements.
+
+The primary requirement is that in general all names must be the same (modulo
+case). This means instruction names are the same, and register names are the 
+same. Additionally operand names which appear in the SSL file must be defined
+as fields in the SLED file, but need not necessarily appear in the actual 
+instruction constructor. Also, an operand which is used as a register index 
+(i.e. appears inside an r[] expression), must be defined in the SLED as a 
+field with register names.
+
+Limitations: Assigning to an operand is not currently supported in Java.
+
+
+\section{Inside the generator - Maintainer's notes}
+
+\subsection{Roadmap}
+The directory structure for the emulator generator code is as 
+follows.  
+
+\begin{tabbing}
+tools/\=codegen\_java.ccaacc\=\kill
+include/\\
+  \>codegen.h\>Abstract class declarations for CodeGenApp and CodeGenLanguage\\
+  \>codegenemu.h\>Main header for emulator generation\\
+  \>codegen\_c.h\> Header file for C language support\\
+  \>codegen\_java.h\>Ditto for Java (inherits from C)\\
+  \>sledtree.h\>Declaration of the SLED AST classes\\
+\\
+tools/\\
+  \>codegen.cc\>Generic methods for CodeGenApp and CodeGenLanguage\\
+  \>codegen\_c.cc\>Methods for C language support\\
+  \>codegen\_java.cc\>Ditto for Java\\
+\\
+  \>gendasm.cc\>  Methods for generating disassembly functions\\
+  \>gendecode.cc\>Methods for generating instruction decoders (via NJMC)\\
+  \>genemu.cc\>   Main function, and initialization\\
+  \>genregs.cc\>  Register structure computations\\
+  \>genss.cc\>    Semantic String / instruction handling\\
+\\
+  \>sledscanner.l\>Lexical specification for SLED files (lex)\\
+  \>sledparser.y\>Syntax specification and ast construction for SLED files  (yacc)\\
+  \>sledtree.cc\>Methods for SLED AST, and some tree construction support\\
+  \>sledtest.cc\>Main function for testing SLED routines\\
+  \>match.cc\>Simple code to generate NJMC-style matching statements\\
+\\
+emu/\\
+	\>emumain.cc 		\>The emulator's main \\
+	\>sparcmain.java	\>The emulator's main for Java-based version \\
+\\
+	\>personality.h		\>Base class for the OS Personality \\
+	\>personality.cc	\>Implementation of the base Personality class \\
+	\>linux.cc			\>Linux personality implementation \\
+	\>solaris.cc		\>Solaris personality implementation \\
+\\
+	\>sparcemu.h		\>Emulator interface file for the SPARC architecture \\
+	\>sparcemu.m		\>Emulator implementation file for the SPARC  \\
+	\>sparcemu.cc		\>Generated file from sparcemu.m \\
+\\
+	\>instrsparcstub\_c.cc	\>C language stub methods for the SPARC architecture \\
+	\>sparcstub\_c.cc	\>C language SPARC stub methods \\
+	\>sparcstub\_java.cc \>Java language SPARC stub methods \\
+	\>x86stub\_c.cc		\>C language x86 stub methods \\
+\\
+	\>sysv.cc			\>SysV loader and process initializer \\
+\\
+tools/runtime/\\
+  \>emuskel.c\>Emulator implementation file skeleton for C \\
+  \>emuskel.h\>Emulator interface file skeleton for C\\
+  \>emuskel.java\>Emulator implementation file skeleton for Java\\
+\end{tabbing}
+
+
+\subsection{Generator code structure}
+
+Conceptually, the generator is separated out into the following pieces:
+\begin{itemize}
+  \item Language neutral, abstract application base class (\texttt{CodeGenApp})
+  \item Main emulator implementation (\texttt{CodeGenEmu})
+  \item Application neutral language support classes (\texttt{CodeGenC}, 
+		\texttt{CodeGenJava})
+  \item Skeleton files (\texttt{emuskel.c}, \texttt{emuskel.h}, 
+		\texttt{emuskel.java}, etc)
+\end{itemize}
+
+After parsing it's input, the generator reads in the specification files
+given to it, and computes the register structures. Then it reads and processes
+each skeleton file in turn, writing to the given output file and substituting 
+in the actual code as it goes. 
+
+All actual code is generated by calls through \texttt{lang}, which is an
+instantiation of \texttt{CodeGenLanguage}\footnote{At least, all code
+\emph{should} be generated in this way. Currently there are still quite a
+few places where operators are inserted directly, which would need to be
+fixed to support less C-like languages.} The skeleton logic is all
+generic, and so is implemented in \texttt{CodeGenApp}.
+
+
+\subsection{Skeleton files}
+
+The skeleton files are processed by reading them line by line,
+substituting for any variables found, and writing out again. Variables are
+implemented similarly to the Unix shell, and can be specified as either
+\$VARNAME or \$\{VARNAME\}.  Variable names may only contain alphanumeric
+or underscore characters.
+
+There is also a simple built-in conditional generation mechanism - 
+\begin{verbatim}
+@SECTION
+ ...
+@SECTION
+\end{verbatim}
+will be generated if and only if the SECTION section is active, whereas
+\begin{verbatim}
+@!SECTION
+ ...
+@!SECTION
+\end{verbatim}
+will be generated if and only if the SECTION section is inactive. In either 
+case the conditional directives themselves will not be copied to the output.
+
+
+\subsection{Generated code structure}
+
+The emulator generator normally creates 2 files - interface (ie .h) and 
+implementation (.c). (In the case of the Java language, it obviously only 
+generates a single output file).  
+The interface file contains some basic typedefs and 
+function prototypes, along with the declaration of the main register 
+structure (\texttt{RegisterFile}).
+
+The guts are of course in the implementation file - This is roughly divided
+into prologue (general macros), disassembler, parameter decoding (mapping 
+register parameters to registers, and breaking up complex operands), 
+instruction routines (one execute routine per instruction), the main
+execute() function (essentially instruction decode and dispatch), and finally
+the exported executeOneInstruction() routine, which handles the main
+fetch-execute cycle (1 cycle's worth).
+
+The disassembler and decoder both depend heavily on the New-Jersey 
+Machine Code toolkit (NJMCTK) to generate the real decoders -- the 
+generator itself just produces (long) match statements for these parts, 
+in the form of .m (matching) files which NJMCTK translates into .cc files.
+
+
+\section{Stand-alone emulation}
+
+In order to test the emulator properly (and transitively the
+specifications), it's useful to be able to run it in isolation from the
+rest of \walk, ie to completely emulate a binary application. The emulator
+source generated from this tool is obviously not capable of doing this by
+itself - it needs support to load binary files, handle operating system
+calls, etc.
+
+Included in the \texttt{emu/} directory is a small set of files to provide the
+needed infrastructure. Currently it contains support for Solaris and Linux
+platforms (at least partially, more work is needed for completeness), and
+stubs for SPARC and x86. In order to support a new CPU core with these
+platforms, it is only necessary to generate an emulator with the toolkit,
+and write a small stub file. The task of the latter is to supply routines
+to set the stack pointer, setup the program counter, and most importantly
+handle parameter passing to and from system calls. (We currently make the
+unsupported assumption that there is a standard for this on each CPU
+architecture - when adding more platforms these stub files will
+undoubtedly need to handle multiple conventions).
+
+In the case of a Java-based CPU core, the stub file is also responsible for
+thunking certain calls through to the Java runtime environment.
+
+
+\subsection{Personality}
+
+The Personality class (and subclasses thereof) is responsible for the
+loading of binary files, initial stack setup, and syscall handling---in
+other words for imitating the normal behaviour of the kernel on a real
+system. Personality in itself only supplies a few utility and factory
+methods; each subclass is responsible for implementing two key methods:
+
+\begin{itemize}
+   \item bool execve( const char *filename, const char **argv, 
+		const char **envp )
+   \item int handleSyscall( int callno, int *parms )
+\end{itemize}
+
+\texttt{execve} behaves exactly as the POSIX standard \texttt{execve} function,
+except that the caller retains control, and it does not actually start
+running the process (which can be done by executing run() as described
+later). \texttt{handleSyscall} is called from the relevant stub file whenever 
+the CPU core encounters the architectural equivalent of a SYSCALL instruction,
+with the number of the syscall, and an array of up to 6 parameters. The
+\texttt{handleSyscall} function should return the result of the call in the 
+first parameter, possibly setting the carry flag via 
+\texttt{setReg\_CF()}.\footnote{On architectures which expect the parameters 
+to be returned unchanged, the stub file is responsible for making a copy of 
+them.}
+
+Note that this is indeed somewhat biased towards Unix and Unix-like
+systems, however at least currently that includes all systems of interest.
+It also seems likely that most other systems could be mapped to make use
+of this interface.
+
+In addition to being a base class for OS-specific behaviour, Personality 
+supplies some basic functions for dealing with the process memory image - in 
+particular all memory accesses from subclasses should be routed through the 
+\texttt{putUser*} / \texttt{getUser*} functions, as they ensure correct 
+byte ordering.
+
+
+\subsection{SysVPersonality}
+
+As a convenience, due to the large amount of overlap between modern
+Unix-like systems, the class SysVPersonality (\texttt{sysv.cc}) was introduced 
+to contain the common parts. This is primarily an implementation of 
+\texttt{execve}, which is a largely standard (and rather non-trivial) process 
+on systems supporting the ELF file format. Note that the BinaryFile API used
+in UQBT is not used here, as rather lower-level information is
+needed by the loader. SysVPersonality also creates one new abstract
+method
+\begin{verbatim}
+  int handleAuxv( AUXV_T *auxv )
+\end{verbatim}
+which permits subclasses to add additional items to the process image's 
+auxiliary vector (is passed pointer to first free vector, returns number of 
+items added ). 
+
+Note that there are some small machine dependencies which have to do with
+the exact stack layout. Adding a new architecture to the emulator may
+require adding an entry to the switch here (unfortunately this seems
+unavoidable).
+
+
+\subsection{Stubs}
+
+As previously mentioned, a stub file needs to be written for each CPU 
+architecture (and for each language, for that matter). A list of these 
+functions is at the top of \texttt{personality.h}, but a quick description 
+may be useful
+
+\begin{itemize}
+  \item{\texttt{setReg\_pc(int)}} Set the program counter to the given value, 
+	so that execution resumes from that point.
+  \item{\texttt{setReg\_sp(int)}} Set the stack pointer to the given value
+  \item{\texttt{setReg\_CF(int)}} Set the carry flag to true/false if the 
+	value is non-zero/zero
+  \item{\texttt{initCore()}}     Initialize the processor core (normally a 
+	no-op for C cores)
+  \item{\texttt{setMem(char *)}} Set the memory base for the emulator core
+  \item{\texttt{run()}}          Begin execution - run until told to stop
+  \item{\texttt{stop(int)}}      Terminate execute with the given exit value
+  \item{\texttt{getArchitecture()}} Return an ID code corresponding to the 
+	CPU architecture being emulated
+  \item{\texttt{getDefaultPersona()}} Return a personality ID representing 
+	the ``default'' platform for a given architecture (ie Solaris for SPARC, 
+	Linux for x86)
+  \item{\texttt{dumpMainRegisters(FILE *)}} Dump the main CPU registers to the 
+	given stream.
+\end{itemize}
+
+
+\section{Performance Analysis}
+{\small
+\begin{flushright}
+Implementation: Bernard; Documentation: Bernard [May 2001]
+\end{flushright}
+}
+
+This section documents the performance analysis that was done on the 
+emulators generated by the emulator generator, with emphasis on the
+SPARC emulator.  Descriptions of performance analysis tools and 
+results using different tools and techniques are given.  
+Note that these experiments were run in May 2001, prior to completion 
+of the emulator generator's final form. 
+
+
+\subsection{Performance Analysis}
+
+From previous performance evaluation work that had been done by Nathan Keynes, 
+the approximate performance of the emulator is known 
+(see Figure~\ref{fig-nathanBenchC}). 
+From this work, we know that the current emulator is approximately 77 times 
+slower than a natively executed program.
+
+\centerfigbegin
+{
+\begin{tabular}{|l|r|r|} \hline
+Emulated Program & Slow down from native\\ \hline
+\emph{099.go} &66.85x  \\ 
+\emph{124.m88ksim} &96.51x\\
+\emph{129.compress95} &77.32x\\
+\emph{130.li} & 70.1x\\
+\emph{132.ijpeg} & 112.49x\\
+\emph{134.perl}  & 63.67x \\
+\emph{147.vortex} &68.82x\\ \hline
+\emph{Mean} & 77.79x \\
+\hline
+\end{tabular}
+}
+\centerfigend{fig-nathanBenchC}{Previous performance evaluation of the C++ 
+	version of the emulator taken from Nathan Keynes' presentation slides}
+
+
+\subsubsection{Profiler Breakdown}
+
+To get a better understanding of where the extra time is spent, profiling
+of the emulator need to be done. First an appropriate profiler need to be
+chosen for the task.
+
+Three different profilers were evaluated - \verb!gprof!, \verb!quantify! and
+\verb!Shade!. A brief summary of each tool can be found in 
+Figure~\ref{fig-profilerComp}.
+
+\centerfigbegin
+{
+\begin{tabular}{|l|l|l|} \hline
+Gprof				
+&Quantify 	
+&Shade  \\ \hline
+
+&&\\
+\emph{Pros} 		
+&\emph{Pros} 	
+&\emph{Pros} \\
+
+$\bullet$ Easy to setup and use		& $\bullet$ Gives a nice graphical 	& $\bullet$  Poweful tool for creating  \\
+$\bullet$ Gives information of time     & call graph   				& custom profilers \\
+	  spent in each function	& $\bullet$ Very detail breakdown of 	& $\bullet$ Can be used to analyse \\
+$\bullet$ Shows function trace of the   &function usage				& specific instructions or \\ 
+	  application			& 					& instruction sets \\
+	  
+&&\\
+\emph{Cons}				& \emph{Cons}			& \emph{Cons} \\
+
+$\bullet$ Groups time spent in each  	& $\bullet$ Proprietary tool where & $\bullet$ Very large amount of work\\  
+function with time spent in	 	& the data gathered can only 	& required to create custom \\
+function's children			& easily be viewed within	& profiler\\
+$\bullet$ Text based function 		& the program			&\\
+trace very hard to follow		&				&\\
+&&\\
+
+\hline \end{tabular} } \centerfigend{fig-profilerComp}{Comparison and
+evaluation of different profilers for use with the C++ based emulator}
+
+From the limited profiling requirements of the project, a tool such as 
+\verb!Shade! is far more complex and time consuming than necessary. 
+Most of the important information from profiling are given by much easier 
+to use tools such as \verb!gprof! and \verb!quantify!.
+
+Although \verb!gprof! gives enough information to meet most of the profiling 
+needs for the emulator, \verb!quantify! can give the same information as
+\verb!gprof! but in greater detail and in a graphical environment. The 
+proprietary nature of the \verb!quantify! tool is not a large concern as 
+the data set gathered does not need to be further analysed by other tools. 
+Therefore, \verb!quantify! was used to perform the remainder of the 
+profiling for the C++ version of the emulator.
+
+
+\subsubsection{VM Overhead}
+
+The first data set that needs to be gathered is relationship between the time
+spent in the actual emulation of the code and the overhead in creating the 
+environment necessary for the emulation.  Figure~\ref{fig-sieveprofil} is a 
+profile of the functions called from \verb!main! in the emulator and the 
+amount of cycles spent in each of these functions and their descendents. 
+The program that the emulator is running is the \verb!sieve! program, 
+generating the first 3000 primes. The \verb!sieve! program is compiled with 
+an optimization of O4 with gcc 2.81.
+
+\centerfigbegin
+{
+\begin{tabular}{|l|r|} \hline
+Functions Called from Main	& Cycles (w/descendants)  \\ \hline
+executeOneInstruction	& 851,395,870,815  \\
+BinaryFile::Load	& 21,582,646	\\
+runDynamicLinker	& 68,794		\\
+initVM			& 22,423		\\
+atexit			& 398		\\
+\hline
+\emph{Total Cycles}	& \emph{851,417,545,076} \\
+\hline
+\end{tabular}
+}
+\centerfigend{fig-sieveprofil}{Breakdown of cycles spent in functions
+called from main of the emulator - \texttt{sieve} }
+
+From this data, it can be seen that more than 99\% of the time is spent 
+executing the actual emulation code. However, sieve is a relative small 
+program with a size of only 24,452 bytes and requires a relatively large 
+amount of CPU cycles. A larger program that requires a smaller amount of 
+CPU cycles will not fare as well.  
+
+Figure ~\ref{fig-bannerprofile} shows the cycle breakdown of the \verb!banner! 
+program displaying the word ``yo'', an example of a program that requires much 
+fewer CPU cycles. The size of the \verb!banner! executable is 6,084 bytes 
+compared to the size of the \verb!sieve! executable which is 24,548 bytes.
+
+\centerfigbegin
+{
+\begin{tabular}{|l|r|} \hline
+Functions Called from Main	& Cycles (w/descendants)  \\ \hline
+executeOneInstruction	& 6,515,532  \\
+BinaryFile::Load	& 2,350,321	\\
+runDynamicLinker	& 70,200		\\
+initVM			& 22,821		\\
+atexit			& 398		\\
+\hline
+\emph{Total Cycles}	& \emph{8,959,272} \\
+\hline
+\end{tabular}
+}
+\centerfigend{fig-bannerprofile}{Breakdown of cycles spent in functions 
+	called from main of the emulator - \texttt{banner} }
+
+With the analysis of the \verb!banner! program, we see that only 73\% of the 
+time is spent executing the actual emulation code. However, much of this time 
+is spent in loading the executable which is unavoidable as even a natively 
+executing program must spend time loading itself into memory. However, the 
+efficiency of the loader compared to the native OS loader is currently 
+unknown and requires further analysis.
+
+A reasonable conclusion can be made that, although the efficiency of the
+emulator's binary loader is not known, it cannot account for much of the
+overall performance slowdown of the emulator.
+
+
+\subsubsection{Child Functions Breakdown}
+
+In order to further analyse the performance of the emulator, a list of the 
+most time consuming functions were generated to see where the emulator is 
+spending most of its time. Figure~\ref{fig-tenfunctions} is a list of the ten 
+most time consuming functions as seen from running the sieve3000 program.
+
+\centerfigbegin
+{
+\begin{tabular}{|l|r|r|} \hline
+Functions		& \% Time	& \# of times called\\ \hline
+execute			& 40.16  	& 6,010,495,867 \\
+executeOneInstruction	& 16.86 	& 6,010,495,867 \\
+executeSUBCC		& 10.57		& 737,516,466  \\
+decodereg\_or\_imm	& 8.62		& 3,139,748,631 \\
+executeADDCC		& 5.09 		& 342,876,189 \\
+decodeeaddr		& 2.86 		& 660,334,656 \\
+executeRESTORE		& 2.39 		& 94,237,151\\
+executeSAVE		& 2.32 		& 94,237,151\\
+executeORCC		& 2.10  	& 383,153,136\\ 
+executeOR		& 1.12 		& 565,495,820\\
+executeBL		& 0.94 		& 401,856,672 \\
+\hline
+\end{tabular}
+}
+\centerfigend{fig-tenfunctions}{Ten most time consuming functions of the 
+	emulator when running the sieve3000 program}
+
+A few noticeable patterns can be seen from the function breakdown in 
+Figure~\ref{fig-tenfunctions}.
+
+\begin{enumerate}
+\item Most of the time is spent in the \verb!execute! function. This
+function is used to match the instruction bit patterns to the assembly
+equivalent for the source machine. For every instruction that needs to be
+executed, one iteration of the execute function is required.
+
+Since the matching of the bit patterns requires significant amount of
+branches and also because of the frequency of this function call, it is
+not surprising that this function takes a significant amount of the
+processing time.
+
+\item The function \verb!executeOneInstruction! also required a
+significant amount of time. Again, this is because this function is called
+once for every instruction that must be executed.
+
+\item The amount of function calls of the top ten functions alone is
+staggering as the same functions are called over and over again. Since
+each function itself requires very little time to execute, all of these
+functions are good potential targets for inlining.
+
+\item Functions that require the manipulation of conditions codes such as
+\verb!executeSUBCC!, \verb!executeADDCC!, and \verb!executeORCC! require a
+significant amount of execution time even though the frequency of these
+instructions are relatively low for the \verb!SPARC! architecture. This
+indicates that each of these instructions require a significant more time
+to execute than their counterparts that do not require condition codes.
+
+\item The two decoding functions \verb!decodereg_or_imm! and
+\verb!decodeaddr! both are called a significant amount of time and take up
+more than 10\% of the total execution time. These decode the compound
+matchining statments \verb!reg_or_imm!  and \verb!eaddr! from the SPARC
+spec.
+
+\item The two functions \verb!executeRESTORE! and \verb!executeSAVE! are
+called very infrequently as they are only needed on function calls and
+returns in the original source program. However, they both take up a
+significant amount of time which indicates that they both are very time
+consuming functions and perhaps an area that can be optimized.
+
+\end{enumerate}
+
+
+\subsection{Performance Experiments}
+
+\subsubsection{Inlining Functions}
+In order to reduce the amount of function calls, all the \verb!execute*!
+and \verb!decode*! functions were inlined. This will in effect cause the
+bulk of the emulator to be compiled and executed and one large function.
+The benefits of this is the elimination of saving and restoring registers
+and also allows the compiler to perform greater amount of optimizations.
+
+\centerfigbegin
+{
+\begin{tabular}{|l|r|r|r|} \hline
+Program Executed	& Original Emulator 	& Modified Emulator & \% Time Saved \\ \hline
+SPEC95 130.li		& 3h 22m 49s 	& 2h 47m 52s 	& 17\% \\
+sieve-3000 		& 19m 29s	& 16m 45s 	& 14\% \\
+fibonacci-32		& 14.4s 	& 13.2s 	& 8\%  \\
+\hline
+\end{tabular}
+}
+\centerfigend{fig-inlineperf}{Performance improvements due to inlining of
+the execute and decode* functions. Test performed on a 4 CPU Sun Ultra-80,
+with low load}
+
+As can be seen from Figure~\ref{fig-inlineperf}, the effects of inlining
+is a noticeable increase in performance in the range of 10\%.
+
+
+\subsubsection*{Bitwise Operation Simplification}
+
+To address the issue of time consuming condition code manipulating
+functions, much of the condition code addressing areas have been analysed
+and redundancies have been removed. For example, many of the condition
+code manipulation required accessing a particular bit in a variable. The
+majority of this bit access is to the same bit. However, in order to
+access this bit, a very cumbersome but generic operation is used.
+
+\begin{verbatim}
+    #define BITSLICE(x,lo,hi) (((x) & ((1LL<<(hi+1))-1))>>lo)
+\end{verbatim}
+
+where hi and lo are both 31. This was replaced with the following 
+
+\begin{verbatim}
+    #define BITPICK(x,lo,hi) (((uint32)x) >> 31)
+\end{verbatim}
+
+However, later analyse of the assembly code shows that the compiler when
+set at a reasonable level of optimization will already perform this type
+of conversion.
+
+
+\subsubsection*{Register Window Modifications}
+
+The \verb!executeSAVE! and \verb!executeRESTORE! operations contributed a
+significant amount of execution time yet were called only a small amount
+of times. This can be due to the register window implementation of the
+emulator where there only exist one window. Therefore, every save and
+restore operation will require spilling out and reading from the stack,
+which results in a significant amount of memory operations.
+
+A true sliding register window would require far less memory operations.
+However, due to the SSL and SLED based nature of the emulator, a true
+sliding register window implementation can not be easily accomplished.
+Currently, the global registers are stored in the same array as the window
+registers. Therefore, attempts to allocate a multiple window array and
+simply slide the offsets of the array would cause references to the global
+registers to be incorrect.
+
+Logic can be added to every register operation to determine whether the
+register in question is a global register. However, the performance hit of
+this was considered to be too significant and further experimentation in
+an overlapping sliding register windows was not investigated.
+
+A non-overlapping sliding register windows implementation was implemented
+as the work required is significantly less. In this implementation, the
+\verb!in! and \verb!out! registers are not overlapped. The window actually
+slides by 32 registers and the values of the global and the in/out
+registers are copied to the new position. Therefore, all registers are in
+the correct position and no additional logic is required to determine
+whether a register is global.
+
+However, in performance evaluation, the performance had actually decreased
+by roughly \emph{10\%}. The reason is due to the signal handlers, which
+save and restore the CPU context at every signal. When this occurs, the
+whole register window is saved, and since the register window is now
+signficantly bigger, the context save and restore time is significantly
+slower and therefore there exists a performance decrease with this
+implementation.
+
+
+\subsubsection{Java Emulator Analysis}
+
+The current performance of the Java-based emulator is approximately 15
+times slower than the C++ version of the emulator\footnote{From previous
+performance evaluation by Nathan Keynes}. In order to investigate the
+reason for the additional performance slow down, profiling of the Java
+emulator needs to be done.
+
+The Java version of the emulator was original written with a C++ front end
+that loads a \verb!JVM! and then calls the Java code. In order to profile
+the Java code, the emulator must be modified to start as a Java program.
+
+Re-implementing the emulator only required approximately one working day
+and allowed the use of a Java profiler on the code. It is also a cleaner
+implementation as it only uses \verb!JNI! to use C++ binary loading
+libraries instead of relying on C++ code much more as in the original
+version.
+
+Performance comparison shows that this new version performed comparably to
+the original version.
+
+The profiler built into the JDK 1.4 was used to analyse the emulator.
+However, the profiler was not initially working correctly as no data was
+produced by the profiler.
+
+After investigation, it was found that the reason behind the profiling
+problems was due to an incorrect interpretation of the system call
+\verb!exit!. Normally, the emulator will trap the exit system call and
+then will perform an exit. Unfortunately, this action will also kill the
+profiler process before it has a chance to output the data it gathered.
+
+To remedy this, the emulator will perform a Java \verb!System.exit! call
+instead of the normal exit system call. This will gracefully shut down the
+profiler and allow the profiler to operate correctly.
+
+\begin{verbatim}
+#ifdef JAVA
+    cls = env->FindClass("java/lang/System");
+    func = env->GetStaticMethodID( cls, "exit", "(I)V");
+    env->CallStaticVoidMethod(cls, func, o0);
+    break;
+#else
+    exit( o0 ); err = 0; break;
+\end{verbatim}
+
+The above is the code segment inside the system call handler that was
+changed in order to exit the Java version of the emulator correctly.
+
+
+\subsubsection*{Performance of JNI vs. Unsafe}
+
+A \verb!JNI! version of the emulator was developed that did not require
+the use of \verb!Unsafe! classes. The \verb!Unsafe! classes, introduced in
+JDK 1.4, were used to allow the Java emulator to directly access memory
+addresses and also make type cast that Java would normally not allow.
+Creating a JNI version of the emulator allowed comparison in performance
+between the \verb!Unsafe! classes to the JNI equivalent.
+
+\centerfigbegin
+{
+\begin{tabular}{|l|r|r|c|} \hline
+Program Executed	& Unsafe-based 	& JNI-based & \% Extra Time JNI requires\\ \hline
+sieve-3000 		& 288m 12s	& 333m 4s 	& 16\% \\
+fibonacci-32		& 3m 42s 	& 4m 28s 	& 21\%  \\
+\hline
+\end{tabular}
+}
+\centerfigend{fig-UnsafeandJNI}{Performance difference of JNI and Unsafe
+based versions of emulator. Test performed on a 4 CPU Sun Ultra-80, with
+low load}
+
+This data clearly show the overhead introduced by using JNI over using
+Unsafe. The advantage of the JNI version is that it does not require the
+use of JDK 1.4, which is still in beta testing.
+
+
+\subsubsection*{Profile of Java Emulator}
+
+Using the Java profiler, the following data was gathered from executing
+the \verb!sieve! program through the Java version of the emulator. The
+data gathered was very similar to the ones gathered from the C++ version
+of the emulator. The methods \verb!execute! and
+\verb!executeOneInstruction! still dominate the total time spent by the
+emulator.
+
+\begin{verbatim}
+rank   self  accum   count trace method
+   1 27.64% 27.64% 1432686509	133 sparcemu.execute
+   2 20.15% 47.79% 1432686509	 31 sparcemu.executeOneInstruction
+   3  9.46% 57.25% 1432686510	 98 sparcemu.getMemint
+   4  6.90% 64.15% 3421444300	 36 sparcemu.decodereg_or_imm
+   5  5.60% 69.75% 3421444300	 52 sparcemu.getMemint
+   6  5.35% 75.11% 1432686510	 46 sun.misc.Unsafe.getInt
+   7  2.98% 78.09% 3421444300	110 sun.misc.Unsafe.getInt
+   8  2.50% 80.59% 1507734608	 56 sparcemu.setMemint
+   9  2.41% 83.00% 1507734608	149 sparcemu.getMemint
+  10  1.80% 84.80% 737504371 	 34 sparcemu.executeSUBCC
+  11  1.80% 86.61% 848237913	 153 sparcemu.executeOR
+  12  1.60% 88.21% 1507734608	 26 sun.misc.Unsafe.putInt
+  13  1.43% 89.63% 94233413 	  65 sparcemu.executeRESTORE
+  14  1.39% 91.02% 94233413 	 138 sparcemu.executeSAVE
+  15  1.30% 92.33% 1507734608	 42 sun.misc.Unsafe.getInt
+  16  0.93% 93.25% 401879787	 156 sparcemu.executeSRL
+  17  0.85% 94.10% 376998205	  20 sparcemu.executeSETHI
+  18  0.83% 94.93% 383153738	 127 sparcemu.executeORCC
+  19  0.55% 95.48% 401864307	  27 sparcemu.executeBL
+  20  0.46% 95.95% 342881000	  78 sparcemu.executeADDCC
+  21  0.45% 96.40% 200981367	 145 sparcemu.executeSLL
+  22  0.39% 96.79% 189104847	  49 sparcemu.decodeeaddr
+  23  0.38% 97.18% 188499799	  23 sparcemu.executeJMPL
+  24  0.37% 97.55% 282667911	 121 sparcemu.executeBCS
+  25  0.32% 97.87% 189104847	  96 sparcemu.getMemint
+  26  0.29% 98.16% 188499257	  43 sparcemu.executeCALL
+  27  0.28% 98.44% 223767090	   7 sparcemu.executeADD
+  28  0.26% 98.70% 188445153  151 sparcemu.executeBLA
+  29  0.24% 98.95% 194702191	  61 sparcemu.executeBA
+  30  0.22% 99.17% 94282993  	 66 sparcemu.executeSUB
+  31  0.17% 99.34% 189104847	 118 sun.misc.Unsafe.getInt
+  32  0.14% 99.48% 100492772 	 79 sparcemu.executeBLEU
+  33  0.13% 99.61% 94242481   137 sparcemu.executeBNE
+  34  0.13% 99.75% 100487320  120 sparcemu.executeBGE
+  35  0.13% 99.87% 94280252    41 sparcemu.executeBEA
+  36  0.12% 100.00% 94321671	  69 sparcemu.executeBE
+CPU TIME (ms) END
+\end{verbatim}
+
+An interesting discrepancy between the Java and C++ versions of the
+emulator is the amount of times the \verb!execute! and
+\verb!executeOneInstruction! functions are called. However, that is
+probably due to the difference in profilers only and is not alone enough
+to discount the accuracy of the data gathered.
+
+From the profiling results, it can be seen that the Java version of the
+emulator has the additional overhead of using functions such as
+\verb!getMemint!, \verb!Unsafe.getInt!, and \verb!Unsafe.putInt!. These
+functions in total account for more than \emph{31\%} of the total time
+spent.
+
+Although 31\% extra overhead is significant, it does not account for the
+approximate \emph{15} times slowdown of the Java emulator when compared to
+the C++ emulator.
+
+
+\subsubsection*{Dynamic Behaviour of Java VM}
+
+An area that can perhaps account for the \emph{15} times slowdown is the
+dynamic behaviour of the Java virtual machine. If the Java VM
+(\texttt{Hotspot 1.4}) was able to discover all the hot paths and make
+them into compiled code, then the performance of the Java version should
+be very close to a natively compiled C++ version. Further more, the Java
+VM could even be smart enough to recognize the nature of the code and
+realize that most of the functions are good candidates for inlining
+further improving performance. The following is a breakdown of the dynamic
+behaviour of the Java VM.
+
+\begin{verbatim}
+Flat profile of 17670.26 secs (879033 total ticks): main
+
+  Interpreted + native   Method                        
+ 75.7% 663823  +  1335   sparcemu.execute
+  0.0%     0  +     7    emumain.main
+  0.0%     0  +     2    sparcemu.doTrap
+  0.0%     0  +     1    sparcemu.decodereg_or_imm
+  0.0%     0  +     1    java.util.zip.ZipFile.getEntry
+  0.0%     0  +     1    java.lang.String.charAt
+  0.0%     1  +     0    sparcemu.executeBL
+  0.0%     1  +     0    sparcemu.executeSLL
+  0.0%     1  +     0    sparcemu.executeADDCC
+  0.0%     0  +     1    java.util.zip.ZipFile.open
+  0.0%     1  +     0    sparcemu.setMemdouble
+  0.0%     1  +     0    sparcemu.executeBGU
+  0.0%     0  +     1    java.lang.Shutdown.halt
+  0.0%     1  +     0    sparcemu.executeSAVE
+  0.0%     0  +     1    java.io.FilePermission.newPermissionCollection
+  0.0%     1  +     0    sparcemu.executeRESTORE
+  0.0%     1  +     0    sparcemu.getMemdouble
+ 75.7% 663831  +  1350   Total interpreted
+
+     Compiled + native   Method                        
+  4.6% 40134  +     0    sparcemu.getMemint
+  3.1% 27390  +     0    sparcemu.executeOneInstruction
+  2.8% 24458  +     0    sparcemu.decodereg_or_imm
+  1.6% 14220  +     0    sparcemu.executeSUBCC
+  1.5% 12769  +     0    sparcemu.run
+  0.8%  7368  +     0    sparcemu.executeRESTORE
+  0.8%  6753  +     0    sparcemu.executeADDCC
+  0.7%  6113  +     0    sparcemu.executeSAVE
+  0.6%  5025  +     0    sparcemu.setMemint
+  0.6%  5001  +     0    sparcemu.executeOR
+  0.5%  4444  +     0    sparcemu.executeORCC
+  0.3%  2470  +     0    sparcemu.executeSETHI
+  0.3%  2352  +     0    sparcemu.executeSRL
+  0.3%  2250  +     0    sparcemu.executeBL
+  0.2%  2007  +     0    sparcemu.decodeeaddr
+  0.2%  1806  +     0    sparcemu.executeBCS
+  0.2%  1708  +     0    sparcemu.executeBLA
+  0.2%  1460  +     0    sparcemu.executeADD
+  0.1%  1198  +     0    sparcemu.executeCALL
+  0.1%  1146  +     0    sparcemu.executeJMPL
+  0.1%  1084  +     0    sparcemu.executeSLL
+  0.1%  1030  +     0    sparcemu.executeBA
+  0.1%   908  +     0    sparcemu.executeBNE
+  0.1%   891  +     0    sparcemu.executeBEA
+  0.1%   693  +     0    sparcemu.executeSUB
+ 20.1% 176577  +     3   Total compiled (including elided)
+
+         Stub + native   Method                        
+  0.0%     0  +    12    sparcemu.doTrap
+  0.0%     0  +    12    Total stub
+
+  Runtime stub + native  Method                        
+  2.0% 17440  +     0    interpreter_entries
+  2.0% 17440  +     0    Total runtime stubs
+
+  Thread-local ticks:
+  0.0%     1             Blocked (of total)
+  0.0%     2             Class loader
+  2.2% 19706             Interpreter
+  0.0%     9             Compilation
+  0.0%    68             Unknown: running frame
+  0.0%     1             Unknown: calling frame
+  0.0%     1             Unknown: no last frame
+  0.0%    32             Unknown: thread_state
+
+
+Global summary of 17670.26 seconds:
+100.0% 879033            Received ticks
+  0.0%     8             Compilation
+  0.0%     2             Class loader
+  2.2% 19706             Interpreter
+  0.0%   102             Unknown code
+
+\end{verbatim}
+
+The above data shows that the majority of the time was spent interpreting
+code instead of executing compiled code. The function
+\texttt{sparcemu.execute}, which when interpreted, accounts for 75.7\% of
+the execution time. However, it was not found to be hot by the VM and thus
+was not compiled. This interpretation probably accounts for a significant
+portion of the slowdown of the Java version of the emulator compared to
+the C++ version. Also, many of the functions that the VM decided to
+compile such as \texttt{sparcemu.executeSLL} and
+\texttt{sparcemu.executeBEA} are really not executed that frequently and
+the compilation overhead for these functions may not be justified. Further
+investigation with fully compiled Java code would be useful to prove or
+disprove these theories.
+
+
+
+
+
+
+

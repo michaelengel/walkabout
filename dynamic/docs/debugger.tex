@@ -1,0 +1,147 @@
+\chapter{Debugger}
+\label{ch-debugger}
+
+{\small
+\begin{flushright}
+Design: Bernard Wong [Oct 2001]; Documentation: Bernard Wong [Jan 2002]
+\end{flushright}
+}
+
+The experiments with the emulator have so far been very positive and show much 
+promise in enabling a more robust dynamic method to perform binary translation. 
+Currently, the emulator works very well with most small conventional user 
+programs on the SPARC. However, large amounts of time was required to debug the 
+emulator in order for it to reach this working state for the SPARC Solaris 
+platform. This is because it is very difficult to debug the emulator, as it 
+often requires the programmer to read pages and pages of SPARC assembly code 
+to spot the one mistake the emulator makes. 
+
+The goal of the graphical debugger for the emulator is to reduce the time and 
+effort necessary in debugging the emulator for each new platform which it is to 
+support. This goal drives the two main necessary requirements in the design of 
+the debugger. These requirements are the following:
+
+\begin{enumerate}
+\item To allow easier and quicker debugging of the emulator, and  
+\item To run and support every platform which the emulator supports.
+\end{enumerate}
+
+Please note that the emulator debugger currently depends on the the Unsafe 
+package which is only available with Java 1.4 (in Beta testing at the 
+time of writing).
+
+
+\section{Overview of Design}
+
+The debugger is written in the Java language and makes use of the Swing 
+package. The program can be broken up into the following sections:
+
+\begin{enumerate}
+\item Graphical Section - \texttt{emuDebug.java}
+\item Emulator Connection Section - \texttt{emuProcess.java}, 
+		\texttt{emuLib.skel}
+\item Disassembler Section - \texttt{disasm.java}
+\item Debugger Preprocessor - \texttt{emuDebugGen} 
+\end{enumerate}
+
+
+\subsection{Graphical Section}
+
+The graphical section, as its name implies, is a collection of classes that 
+deals with the different graphical parts of the debugger. Any modification to 
+GUI should be made to this section. There are currently 5 main windows to the 
+debugger: Disasm Output, Command Window, Register Window, Trace Window and Misc.
+Window. 
+
+Some of the GUI components' functionality are not currently implemented. These 
+include the Relocation radio buttons, the Trace Window, the Float Registers 
+frame and the View at Mem Address box. The Relocation buttons and Trace Window 
+are intended for use by the PathFinder, as it would give the PathFinder tool the
+ability to display addresses and assembly instructions of the collected traces 
+which would greatly help debugging that tool as well.
+
+
+\subsection{Emulator Connection Section}
+
+The emulator connection section is a separate Java program which interacts with 
+the emulator and communicates with the rest of the debugger via sockets. Every 
+time a breakpoint is reached the emulator connection section will send the 
+current emulator state information to the graphical section serving as a bridge
+between the debugger and the emulator. 
+
+The main reason for separating the emulator connection section into a separate 
+program from the graphical section is because of the stability of the emulator.
+During many of the development stages of the emulator, it would often crash if 
+it encountered certain combination of instructions. If the emulator, which is a 
+native C program, crashes, it will cause the emulator connection section to also
+crash as the emulator connection section is connected to the emulator via 
+the Java Native Interface (JNI). 
+By separating the emulator connection section from the graphical section, it 
+allows the debugger to gracefully recover from the crash and collect all the 
+relevant emulator state information just before the crash occurred without 
+requiring a restart of the entire debugger. 
+
+
+\subsection{Disassembler Section}
+
+The disassembler section uses the existing automatically generated disassembler 
+and formats the disassembled information into a format compatible with the 
+Graphical Section. Since the automatically generated disassembler is generated 
+by the same tool as the automatically generated emulator, any platform which the
+emulator supports would also be supported by the disassembler. Therefore, using
+this disassembler will help the debugger satisfy its requirement to support all
+the platforms which the emulator supports.
+
+
+\subsection{Debugger Preprocessor}
+
+Finally, the debugger preprocessor is an effort to allow the debugger to easily 
+support every platform which the emulator supports. Places in the debugger that 
+require platform specific information are marked with special preprocessor 
+symbols that are later replaced with platform specific code that is  
+automatically generated via the use of specification files. A very simple parser
+used to perform the replacements can be found in the \texttt{emuDebugGen} 
+directory. The specification file is \texttt{machine/sparc/emuDebugSPARC.spec} 
+(for SPARC machines) and contains the following section headings: 
+\texttt{ConditionCodes}, \texttt{IntegerRegisters}, \texttt{ProgramCounter}, 
+and \texttt{MiscRegisters}.  The specification definition is currently 
+only sufficient to support SPARC instructions. Additional headings support will 
+need to be added in order to support other platforms.
+
+Performing the command
+
+\begin{verbatim}
+java CodeGen src/machine/sparc/emuDebugSPARC.spec \
+     src/machine/sparc/emuDebugSPARC.m \
+     src/machine/sparc/emuLib.skel
+\end{verbatim}
+
+will generate the final platform specific Java files from the skeleton and 
+specification files. The included make file will already perform the necessary 
+Java files generation.
+
+\section{Current Status}
+The current version of the debugger allows for the execution of the emulator to 
+be controlled via the graphical panels of the debugger. The emulator can be told
+to emulate one instruction at a time (stepping through emulated machine 
+instructions), or can be told to stop at breakpoints specified by memory 
+addresses. Breakpoints can be added graphically as the assembly instructions of 
+the executing program are shown. However, the assembly instructions when the 
+program enters a library file is not shown. Therefore it is best to compile the 
+executable to be emulated statically during the debugging phases. At each 
+breakpoint, the current integer register, control flags, PC and nPC and other 
+important register values are shown. The debugger can also restart the emulator
+at any point of execution.
+
+Currently, only the SPARC emulator is supported by the debugger. In order to 
+support other platforms, the specification file definition will need to be 
+expanded. A more mature parser may need to be written in order to easily parse 
+an expanded specification definition (the current parser is only meant to 
+quickly test the feasibility of using specification files to generate Java 
+files). 
+
+Support for PathFinder is also not currently implemented. Supporting 
+Pathfinder with the debugger would be a very worthwhile feature as it would 
+greatly help to debug the complex PathFinder code.
+
+

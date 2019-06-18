@@ -1,0 +1,9 @@
+Note, this profile is not complete.
+Next executing tail that will instrument calls aswell,
+end of trace condition is still back branch.
+Fibonacci still fails under this scheme.
+
+Solution:
+should have a different scheme if start of trace is 
+a call.  ie, different end of trace cond for different
+start of traces. 

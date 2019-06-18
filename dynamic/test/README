@@ -1,0 +1,33 @@
+o To run the regression test you need to run it under tcl/tk: 
+
+    tclsh interp-regression.tcl <source>  
+          where <source> is one of 'sparc' or 'pentium'
+
+
+o To run benchmark collection results, select the benchmark (099.go in 
+  this example) and use the configure file at the top directory: 
+
+    runspec -c sun-emu.cfg -T base -i ref 099.go
+
+
+o To collect timing information, you can use the time or timex commands 
+  in the *.cfg file, e.g.: 
+
+	monitor_wrapper=timex sh -c '%command%'
+
+  you then need to be in a csh to run the following command: 
+
+    echo go `runspec -c sun.cfg -T base -i ref 099.go |& egrep "real|user|sys"` >! result/go.results.txt
+
+  which will produce a file called go.results.txt in this case with the 
+  timing information: 
+
+    cat result/go.results.txt
+    go real 5:02.45 user 5:00.94 sys 0.03 real 4:10.12 user 4:08.78 sys 0.03 real 4:15.53 user 4:14.16 sys 0.04
+
+
+o To collect timing information for the pathfinder, use the sun-pathfinder.cfg 
+  file for the SPEC INT95 benchmarks: 
+
+    runspec -c sun-pathfinder.cfg -T base -i ref <benchmark-name>
+

@@ -1,0 +1,17 @@
+PFDIR = dynamic/pathfinder
+INCLUDES += -I${PFDIR} -I${PFDIR}/sparc.NET.direct -I${INSTR_DIR}
+MAPFILE = -Wl,-M${PFDIR}/emu.map
+CXXFLAGS += -DDIRECT_MAP -DFRAG_LINK -DCONSIDER_EXITS
+CXXFLAGS += -DV9_CODEGEN
+
+PATHFINDER_SRC = \
+        ${PFDIR}/NET.cc \
+
+PATHFINDER_OBJ = $(PATHFINDER_SRC:%.cc=%.o)
+EMU_C_OBJ += ${PFDIR}/mclib.o ${PFDIR}/sparc-enc.o ${PATHFINDER_OBJ}
+
+dynamic/emu/sparcemu.o: ${PFDIR}/sparc.NET.direct/sparc.NET.direct.extraV9.cc ${PFDIR}/pathfinder.cc ${PFDIR}/context_switch.cc
+
+${PFDIR}/sparc.NET.direct/sparc.NET.direct.extraV9.cc: ${PFDIR}/sparc.NET.direct/sparc.NET.direct.extraV9.m
+	./mltk.sh sun machine/sparc/sparc-core.spec machine/sparc/sparc-synth.spec machine/sparc/sparcdis.spec ${PFDIR}/sparc.NET.direct/sparc.NET.direct.extraV9.m
+

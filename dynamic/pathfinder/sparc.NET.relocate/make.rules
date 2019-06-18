@@ -1,0 +1,14 @@
+INCLUDES += -Idynamic/pathfinder -I${INSTR_DIR}
+CXXFLAGS += -DFRAG_LINK
+
+RELOCATOR_SRC = \
+	dynamic/pathfinder/NET.cc \
+
+RELOCATOR_OBJ = $(RELOCATOR_SRC:%.cc=%.o)
+EMU_C_OBJ += dynamic/pathfinder/mclib.o dynamic/pathfinder/sparc-enc.o ${RELOCATOR_OBJ}
+
+pathfinder/emu/sparcemu.o: dynamic/pathfinder/sparc.NET.relocate/sparc.NET.relocate.extra.cc dynamic/pathfinder/pathfinder.cc dynamic/pathfinder/context_switch.cc
+
+dynamic/pathfinder/sparc.NET.relocate/sparc.NET.relocate.extra.cc: dynamic/pathfinder/sparc.NET.relocate/sparc.NET.relocate.extra.m
+	./mltk.sh sun machine/sparc/sparc-core.spec machine/sparc/sparc-synth.spec dynamic/pathfinder/sparc.NET.relocate/sparc.NET.relocate.extra.m
+

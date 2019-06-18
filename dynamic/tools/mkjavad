@@ -1,0 +1,77 @@
+#!/bin/sh
+# Usage: <mltk-ver> <spec file> <ssl file> <output .java file>
+#
+# Note: Expects to be run from the top level walkabout directory
+
+GENEMU=dynamic/tools/genemu
+MLTK="./mltk.sh"
+
+if [ $# -lt 3 ]; then
+  echo "Usage: <mltk-location> <SLED-filename> <Java-output-filename> [-unsafe]";
+  exit 1;
+fi
+
+MLTKLOC="$1"
+SLEDFILE="$2"
+# SSLFILE="$3"
+JAVAFILE="$3"
+DEFS=""
+CPPFLAGS=""
+
+if [ $# -gt 3 ]; then
+   if [ $4 = "-unsafe" ]; then
+      CPPFLAGS="${CPPFLAGS} -DUNSAFE";
+   elif [ $4 = "-emuDebug" ]; then
+      CPPFLAGS="${CPPFLAGS} -DEMUDEBUG";
+   elif [ $4 = "-elfParser" ]; then
+      CPPFLAGS="${CPPFLAGS} -DJAVAELFPARSER";
+   else
+      echo "Unknown parameter : $4"
+      exit 1;
+   fi
+fi
+
+if [ $# -gt 4 ]; then
+   if [ $5 = "-unsafe" ]; then
+      CPPFLAGS="${CPPFLAGS} -DUNSAFE";
+   elif [ $5 = "-emuDebug" ]; then
+      CPPFLAGS="${CPPFLAGS} -DEMUDEBUG";
+   elif [ $5 = "-elfParser" ]; then
+      CPPFLAGS="${CPPFLAGS} -DJAVAELFPARSER";
+   else
+      echo "Unknown parameter : $5"
+      exit 1;
+   fi
+fi
+
+if [ $# -gt 5 ]; then
+   if [ $6 = "-unsafe" ]; then
+      CPPFLAGS="${CPPFLAGS} -DUNSAFE";
+   elif [ $6 = "-emuDebug" ]; then
+      CPPFLAGS="${CPPFLAGS} -DEMUDEBUG";
+   elif [ $6 = "-elfParser" ]; then
+      CPPFLAGS="${CPPFLAGS} -DJAVAELFPARSER";
+   else
+      echo "Unknown parameter : $6"
+      exit 1;
+   fi
+fi
+
+
+${GENEMU} -j -o ${JAVAFILE}.m -d $SLEDFILE
+${MLTK} $MLTKLOC $SLEDFILE ${JAVAFILE}.m
+echo -n "Doing post-toolkit processing..."
+
+cat ${JAVAFILE}.cc | grep -v "^#include <assert.h>" | sed -e 's/assert(0)/assert(false)/g' |
+  /proj/walkabout/tools/gcc-2.95.2.1/install/bin/cpp $CPPFLAGS | grep -v "^ *\#" | 
+  sed -e 's/sizeof( *int *)/4/g' -e 's/(void)0//g' \
+      -e 's/goto MATCH_finished_a/return nextPC/g' \
+      -e 's/goto MATCH_finished_[a-z0-9]*;//g' \
+      -e 's/MATCH_finished_[a-z]*: ;//g' \
+      -e 's/\(public int disassemble.*\)$/\1 throws java.io.IOException/' \
+      -e 's/int nextPC;/int nextPC = pc;/g' \
+      -e 's/assert/assertion/g' |
+  perl -0777 -pe 'while( s/(MATCH_label_[a-z0-9]*):.*?{(.*?)\n\s+}//s ){ $r=$2; s/goto $1;/{$r}/sg; };
+          s/(return nextPC;\s+)+/return nextPC;\n/g;s/}return nextPC;/}/g'  > ${JAVAFILE}
+
+echo "done"

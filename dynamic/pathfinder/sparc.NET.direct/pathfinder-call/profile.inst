@@ -1,0 +1,150 @@
+#
+# Copyright (C) 2001, Sun Microsystems, Inc
+#
+# See the file "LICENSE.TERMS" for information on usage and
+# redistribution of this file, and for a DISCLAIMER OF ALL
+# WARRANTIES.
+#
+#
+
+# File: sparc.NET.direct/pathfinder-call/profile.inst
+# Desc: This file contains the list of instructions and actions used for 
+#       instrumentation.  The file instruments the guest program using 
+#       Dynamo's NET (next executing tail) method.  
+#		It monitors back branches and invokes the trace builder to build hot 
+#       traces. It also records the value of memory references of the hot trace
+#
+# Updates:
+# 01 Aug 01 - David: initial version
+# 20 Aug 01 - David: now instruments calls aswell.
+
+
+DEFINITION
+
+branch [ "BA", "BN", "BNE", "BE", "BG", "BLE", "BGE", "BL",
+ 	     "BGU", "BLEU", "BCC", "BCS", "BPOS", "BNEG", "BVC", "BVS",
+         "BNEA", "BEA", "BGA", "BLEA", "BGEA",
+         "BLA", "BGUA", "BLEUA", "BCCA", "BCSA", "BPOSA",
+         "BNEGA", "BVCA", "BVSA" ]	
+branch label 
+{
+	int oldpc = SSL(%pc);		
+ 
+ 	SSL_INST_SEMANTICS
+  
+	// check back branches
+	if (oldpc > PARAM(label)) {
+		if (trace_mode) {
+			// regardless of whether back branch is taken, trace ends
+			// item 2 of Dynamo's end of trace condition
+			// - hot trace can only have one loop
+			end_build_trace(oldpc, PARAM(label));
+			// end_build_trace(oldpc, SSL(%pc));
+		} else {
+		
+   			// branch is taken
+			if (SSL(%npc) == PARAM(label)) {			
+ 				// check to see if target is in the fragment cache
+				map<pair<unsigned,unsigned>, Fragment>::iterator mi = 
+					entry_points.find(pair<unsigned,unsigned>(oldpc, PARAM(label)));
+ 				if (mi == entry_points.end()) {				
+ 	  				increment_counter(oldpc, PARAM(label), 0);
+				} else {
+					jump_to_fragment((*mi).second.host_address);
+				}
+			}
+		}
+  	}
+}
+
+call [ "CALL__" ]
+call label
+{
+	int oldpc = SSL(%pc);		
+ 	SSL_INST_SEMANTICS  
+	// trace ends at a back branch or at the same call site??
+	if (trace_mode) {
+		//if (trace_edge == pair<unsigned, unsigned>(oldpc, PARAM(label))) {
+		//	end_build_trace(oldpc, PARAM(label));
+		//}
+	} else {				
+ 		// check to see if target is in the fragment cache
+		map<pair<unsigned,unsigned>, Fragment>::iterator mi = 
+			entry_points.find(pair<unsigned,unsigned>(oldpc, PARAM(label)));
+ 		if (mi == entry_points.end()) {				
+ 	  		increment_counter(oldpc, PARAM(label), 0);
+		} else {
+			jump_to_fragment((*mi).second.host_address);
+		}
+  	}
+}
+
+load  [ "LD", "LDA", "LDD", "LDUH", "LDUHA", "LDUB", "LDUBA", "LDSH", "LDSHA", "LDSB", 
+	    "LDSBA", "LDF", "LDDF", "LDSTUB"]
+load eaddr, reg
+{
+	if (trace_mode) {
+		// monitor the value of eaddr
+		// monitor_eaddr(SSL(%pc) - 4, PARAM(eaddr));		
+		monitor_eaddr(SSL(%pc), PARAM(eaddr));		
+	}
+  	SSL_INST_SEMANTICS
+}
+
+store [ "STD", "STDA", "ST", "STA", "STH", "STHA", "STB", "STBA", "STDF", "STF",
+	    "STDFA", "STFA"]
+store reg, eaddr                      
+{
+	if (trace_mode) {
+		// monitor the value of eaddr
+		monitor_eaddr(SSL(%pc), PARAM(eaddr));		
+	}
+  	SSL_INST_SEMANTICS
+}
+
+return [ "RET", "RETL" ]
+return none
+{
+	int oldpc = SSL(%pc);		
+  	SSL_INST_SEMANTICS
+	if (trace_mode) {
+		// monitor the value of npc
+		monitor_eaddr(oldpc, SSL(%npc));		
+	}
+}
+
+indirect_call [ "CALL_" ]
+indirect_call eaddr
+{
+	if (trace_mode) {
+		// monitor the value of eaddr
+		monitor_eaddr(SSL(%pc), PARAM(eaddr));		
+	}
+  	SSL_INST_SEMANTICS
+}
+
+ijump [ "JMP", "JMPL" ]
+ijump eaddr, reg
+{
+	if (trace_mode) {
+		// monitor the value of eaddr
+		monitor_eaddr(SSL(%pc), PARAM(eaddr));		
+	}
+  	SSL_INST_SEMANTICS
+}
+
+
+FETCHEXECUTE
+{
+	if (trace_mode) {
+		add_to_trace(SSL(%pc));		
+	}
+  	SSL_INST_SEMANTICS
+}
+
+
+
+INSTRUMENTATION_ROUTINES
+
+#include "sparc.NET.direct.extra.cc"
+

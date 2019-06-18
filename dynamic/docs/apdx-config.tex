@@ -1,0 +1,536 @@
+%
+% 29 Aug 01 - Cristina: created 
+% 24 Oct 01 - Brian: Added testing section. Made various edits. 
+%  8 Jan 01 - Cristina: updated
+%
+
+\chapter{Building Walkabout}
+\label{ch-config}
+
+{\small
+\begin{flushright}
+Documentation: Cristina [Aug 01, Jan 02]
+\end{flushright}
+}
+
+This chapter contains notes on how to configure the \walk\ framework
+for a given platform.  
+The tools that can be built within the \walk\ framework include 
+an emulator, a disassembler, a pathfinder and a debugger. 
+Most of the examples are for the SPARC architecture as this was 
+our development platform.  
+
+
+\section{Compilers and Tools Needed to build \walk}
+We use gcc 2.95.3, however, we do not make use of any of the new 
+classes that are not available in 2.95-2, such as sstream. 
+Note that we make use of namespaces sparsely in the code and these
+are not supported by the gcc 2.8.1 version of the compiler, 
+but they are in egcs-1.1.2 (gcc 2.91.66). 
+
+For debugging, gdb 5.0 works well with gcc 2.95.3.
+
+
+\subsection{Special tools needed to build \walk}
+
+\walk\ has many source files that are generated from other source files,
+or from specifications. It is possible to make \walk\ without installing
+these tools, but if you want to make significant changes to \walk, you will
+need those tools.
+
+To make \walk\ without the special tools, use the \texttt{--enable-remote}
+configuration script (see above).
+
+The special tools are as follows.
+
+\begin{itemize}
+\item The New Jersey Machine Code Toolkit, ML version. This tool reads machine
+specifications, and in association with a matcher (\texttt{.m}) file, generates
+binary decoders. For details and downloading, see
+\texttt{http://www.eecs.harvard.edu/~nr/toolkit/ml.html}.
+\item Bison++ and Flex++, C++ versions. Note that the GNU tool bison++ is
+{\it not} suitable; \walk\ needs the special versions from France, which are
+C++ aware. If you get lots of errors from running bison++, you have probably
+got the wrong version! Download these tools from
+\texttt{ ftp://ftp.th-darmstadt.de/pub/programming/languages/C++/tools/flex++bison++/LATEST/}
+You might also try downloading these tools from one of the various mirror sites such as
+\texttt{http://sunsite.bilkent.edu.tr/pub/languages/c++/tools/flex++bison++/LATEST/}.
+To test if you have the correct version, you should get results similar to:
+\begin{verbatim}
+%  bison++ --version
+bison++ Version 1.21-7, adapted from GNU bison by coetmeur@icdc.fr
+\end{verbatim}
+If searching the web for these tooks, include the author's name ("coetmeur")
+as a keyword.
+\item The Tcl shell (\texttt{tclsh}). This tool is only needed to run the
+regression test script (\texttt{test/regression.test}).
+\texttt{tclsh} and the \texttt{tcltest} package are part of
+Tcl/Tk releases 8.0 and newer.
+You may well find that these are already installed on
+your Linux or other system. Otherwise, see web pages such as
+\texttt{http://www.sco.com/Technology/tcl/Tcl.html}.
+\end{itemize}
+
+
+\section{Configuration Notes}
+In order to instantiate a translator out of the \walk\ framework, 
+you need to configure \walk\ to run on your host machine by instantiating 
+a set of source and target machines.  Figure~\ref{fig-mach-names} 
+lists the names used within \walk\ to describe machine specifications, and 
+the associated instruction set version that is specified.  
+
+\centerfigbegin
+\begin{tabular}{|l|l|} \hline
+Name	& Description \\ \hline
+sparc	& SPARC V8 (integers and floats) \\
+pent	& 80386 (integers and floats) \\ \hline
+\end{tabular}
+\centerfigend{fig-mach-names}{Names of Machines and Versions Supported 
+	by the \walk\ Framework}
+
+You can get help from the configure program at any point in time by 
+emitting the following command: 
+\begin{verbatim}
+   ./configure --help
+\end{verbatim}
+
+Figure~\ref{fig-config} shows the options used by \walk\ from the 
+\verb!configure! program. 
+
+\centerfigbegin
+\begin{tabular}{|l|l|} \hline
+Option 	& Description \\ \hline
+  --enable-remote       & don't try to regenerate generated files \\
+  --enable-debug[=$<what>$] & enable debugging support, $<what>$ is one of ***\\
+  --with-source=$<arch>$  & translate from $<arch>$ architecture,
+                          one of sparc, pent \\
+  --with-instrm=$<dir>$   & add instrumentation to emulator using files in $<dir>$ \\  \hline
+\end{tabular}
+\centerfigend{fig-config}{Configure Options}
+
+
+\section{Configuring Tools from the \walk\ Framework}
+At present (Aug 2001), you can generate disassemblers, interpreters 
+and a PathFinder program using the \walk\ framework. 
+In order to generate these tools, the framework has to be configured
+using different options.  These notes describe how to \texttt{configure} 
+\walk\ for different purposes.  More information about how \texttt{configure} 
+works is available in Section~\ref{sec-config-process}.  
+Note that in order to build a different tool you always need to 
+reconfigure your system. 
+
+
+\subsection{Generating Interpreters}
+
+In order to generate interpreters, you need to first build the tool
+that generates interpreters, \texttt{genemu}: 
+
+\begin{verbatim}
+   configure --with-source=sparc --enable-remote
+   make dynamic/tools/genemu
+\end{verbatim}
+This generates the file \texttt{genemu} in the \texttt{./dynamic/tools} 
+directory. 
+
+The \texttt{genemu} tool will create an interpreter based on 
+the syntax (SLED) and semantic (SSL) specifications for a machine. 
+Both a C-based interpreter and a Java-based interpreter can 
+be generated using \texttt{genemu}, although the Java-based interpreter
+has only been tested with the SPARC specifications. 
+
+The options available in \texttt{genemu} are: 
+\begin{verbatim}
+Usage: genemu [options] <sled-filename(s)> <ssl-filename>
+Recognized options:
+   -c  output C code [default]
+   -d  disassembler only (do not generate emulator core)
+   -j  output Java code
+   -i  inst-filename: use inst-filename to instrument code.
+   -t  test only, no code output
+   -m  additionally generate a Makefile to go with the core
+   -o <file>  write output to the given file
+\end{verbatim}
+
+Note that one or more SLED files can be given as input, SLED files
+have the extension \texttt{.spec} and SSL files have the extension 
+\texttt{.ssl}.  Also, some options have not been maintained, it is 
+best to use the configure options (see next sections) or see the 
+configuration files for examples of usage.  
+
+
+\subsubsection{C-based Interpreters} 
+To generate a C-based interpreter for a particular machine, use the 
+\texttt{make} rule for that machine
+(normally the name of the machine followed by ``emu''). 
+For the SPARC, you would run: 
+\begin{verbatim}
+   make sparcemu
+\end{verbatim}
+This will generate \texttt{sparcemu} in the {\texttt{./dynamic/emu} 
+directory, if you had configured for the SPARC machine.
+
+To run: 
+\begin{verbatim}
+   cd dynamic/emu
+   sparcemu ../../test/sparc/hello 
+   sparcemu /bin/banner Hi
+\end{verbatim}
+
+
+\subsubsection{Java-based Interpreters}
+To generate a Java-based interpreter for the SPARC machine, use 
+the following make rule: 
+\begin{verbatim}
+   make dynamic/emuj
+\end{verbatim}
+
+You can then run the generated interpreter using a Java VM: 
+\begin{verbatim}
+   cd dynamic/emu
+   java -cp . sparcmain ../../test/sparc/hello
+\end{verbatim}
+
+
+\subsection{Generating PathFinder}
+
+To build a virtual machine that finds hot paths and generates 
+native code for those paths while interpreting other cold 
+paths, you need to configure \walk\ to generate the \texttt{pathfinder} 
+virtual machine (VM)
+by configuring for a particular instrumentation method to determine
+hot paths within the interpreter.  For example, if you want to use   
+Dynamo's next executing tail (NET) method, run the following
+configure command: 
+
+\begin{verbatim}
+   configure --with-source=sparc --enable-remote \ 
+             --with-instrm=dynamic/pathfinder/sparc.NET.direct/pathfinder 
+\end{verbatim}
+
+Then make the tool by building a target
+with the name formed by adding a single-character prefix
+to the word ``pathfinder''.
+This prefix character is the first letter of the name of the machine 
+on which the genberated \texttt{pathfinder} will run.  
+For example, for SPARC you would run: 
+
+\begin{verbatim}
+   make spathfinder
+\end{verbatim}
+
+This generates the instrumented VM \texttt{spathfinder} in the
+\texttt{./dynamic/emu} directory.
+This instrumented VM uses code profiling as well as code generation
+to execute code for SPARC V8.
+Note, however, that the source code for the code generator
+relies on some SPARC V9 instructions. 
+
+To run: 
+\begin{verbatim}
+   cd dynamic/emu
+   spathfinder ../../test/sparc/hello
+   spathfinder ../../test/sparc/fibo-O0
+   spathfinder /bin/banner Hello
+\end{verbatim}
+
+A word of caution when building interpreters and VMs.  Some of the
+files used by these tools are the same and some get patched, therefore, 
+it is wise to remove object files before building a new tool.  We
+therefore recommend you do a \texttt{make dynclean} before you build 
+your tool.  If you are getting strange errors, most likely you need 
+to \texttt{make dynclean}. 
+Since you need to run configure, you can do this at the same time:
+
+\begin{verbatim}
+    make dynclean
+    configure --with-source=sparc ...  [whatever other options]
+\end{verbatim}
+
+You can generate other pathfinder tools for the SPARC architecture 
+by using some of the other instrumentation files.  The above example 
+made use of the 
+\texttt{dynamic/pathfinder/sparc.NET.direct/pathfinder/profile.inst} 
+instrumentation file.  
+Other instrumentation files can be used, the ones in the \walk\ 
+distribution are in the following locations: 
+
+\begin{verbatim}
+   dynamic/pathfinder/sparc.NET.direct/pathfinder-call/profile.inst
+   dynamic/pathfinder/sparc.NET.direct/pathfinder-recursive/profile.inst
+   dynamic/pathfinder/sparc.NET.direct/pathfinder.v9/profile.inst
+   dynamic/pathfinder/sparc.NET.relocate/profile.inst
+\end{verbatim} 
+
+
+\subsection{Generating the \walk\ Debugger} 
+
+The \walk\ debugger is a GUI debugger written in the Java language. 
+The debugger was only ever tested with the SPARC architecture, 
+other extensions would be needed to support the display of state 
+information for other architectures.   
+
+To configure the debugger, emit the following commands: 
+
+\begin{verbatim}
+   make dynclean
+   configure --with-source=sparc --enable-dynamic --enable-remote
+   make dynamic/emuDebug
+\end{verbatim}
+The make builds the disassembler and the interpreter for the configured 
+machine, and then generates \texttt{emuDebug.class} in the 
+\texttt{./dynamic/emuDebug/bin} directory.
+
+To run the debugger, execute the bash script \texttt{emuDebug} in the 
+\texttt{./dynamic/emuDebug} directory (this is a shell script file; 
+make sure the first line refers to the location of your \texttt{bash} tool):  
+
+\begin{verbatim}
+   cd dynamic/emuDebug
+   emuDebug ../../test/sparc/hello 
+\end{verbatim}
+
+
+\subsection{Building without the \texttt{--with-remote} Option}
+
+When configuring the system \emph{without} use of the remote option 
+(i.e. without \texttt{--with-remote}), the system will recreate .m and .cc 
+files from the machine specifications and .c files from .y files.  
+
+It is recommended that you do a \texttt{make realdynclean} before 
+configuring without the remote option, in order to remove all generated
+files that have already been stored in the distribution. 
+
+
+\section{How the Configuration Process Works}
+\label{sec-config-process}
+A complete description of the autoconfigure process is beyond the scope of
+this document; the interested reader can get more information from
+publicly available
+documentation such as \texttt{http://www.gnu.org/manual/autoconf/index.html}.
+
+In brief, the developer writes a file called \texttt{configure.in}. The program
+\texttt{autoconf} processes this file, and produces a script file called
+\texttt{configure} that users run to configure their system. We have
+already done that, so unless you need to change the configuration, you
+only need to run \texttt{./configure}. If you do make a change to
+\verb!configure.in!, then you should run
+\begin{verbatim}
+   autoconf; autoheader
+\end{verbatim}
+
+When \texttt{./configure} is run, various files are read, including a file
+specific to the source machine. For example, if you configure with
+\texttt{--with-source=sparc}, the file \texttt{machine/sparc/sparc.rules}
+is read for SPARC-specific information. It also reads the file
+\texttt{Makefile.in}. Using this information and the command line options,
+\texttt{./configure} creates the file \texttt{Makefile}.
+As a result, the \texttt{Makefile} isn't even
+booked in. That's the main reason you need to run \texttt{./configure} as
+the very first thing, before even \texttt{make}. It also means that you
+should not make changes (at least, changes that are meant to be permanent)
+to \verb!Makefile!; they should be made to \texttt{Makefile.in}.
+
+Another important file created by \verb!./configure! is \verb!include/config.h!.
+This file is included by \verb!include/global.h!, which in turn is included
+by almost every source file. Therefore, \verb!configure! goes to some trouble
+not to touch \verb!include/config.h! if there is no change to it (and it says
+so at the end of the \verb!configure! run). A significant change to the
+configuration (e.g., choosing a new source or target machine) will
+change \verb!include/config.h!, and therefore almost everything will
+have to be recompiled.
+
+A note about the version of \texttt{autoconf}; we have found that 
+version 2.9 does not work properly but version 2.13 works fine with 
+our \texttt{configure} files. 
+
+
+\subsection{Dependencies and \texttt{make depend}}
+Building \walk requires a file called \verb!.depend!
+that contains file dependencies for the system.
+The first time you \verb!make! \walk,
+this file won't exist
+and it will be created automatically for you.
+The \verb!.depend! file contains entries similar to this:
+
+\begin{verbatim}
+coverage.o: ./coverage.cc include/coverage.h include/global.h \
+ include/config.h
+\end{verbatim}
+
+which says that the \verb!coverage.o! file depends on the files
+\verb!./coverage.cc!, \verb!include/coverage.h!, and so on. There can be
+dozens of dependencies; the above is one of the smallest. This information
+takes a minute or two to generate, and so is only generated (a) by \verb!make!
+itself if 
+\verb!.depend! does not exist, and (b) if the user types \verb!make depend!.
+
+It is easy to change the dependencies, e.g. by adding a
+\verb!#include! line to a source file. If you do this, and forget to run
+\verb!make depend!, then you can end up with very subtle make problems that
+are very hard to track down. For example, suppose you add
+``\verb!#include "foo.h"!'' to the \verb!worker.cc! source file,
+so that \verb!worker.cc! can use the last virtual method in class \verb!foo!.
+Everything compiles and works fine. A week later, you add a virtual method to
+the middle of \verb!class foo!. The \verb!.depend! file doesn't have the
+dependency for \verb!worker.cc! on \verb!foo.h!, and so \verb!worker.o! isn't
+remade. The code in \verb!worker.o! now calls the second last method
+in \verb!class foo!, instead of the correct final method! However,
+you are not thinking about \verb!worker.cc! now, since your latest changes
+are elsewhere. This sort of problem can take a long time to diagnose.
+
+One solution is to ``\verb!make clean!'' as soon as you get unexpected
+results. However, you can save a lot of time if instead you just
+\verb!make depend; make! instead. In fact, it's a good idea to run
+\verb!make depend! regularly, or after any significant change to the source
+files.
+
+\subsection{Warnings from \texttt{make}}
+
+During the making of \walk, it is normal to see quite a lot of output. We try to
+ensure that ordinary warnings from gcc are prevented, but some warnings are much
+harder to suppress, and some warnings are quite normal. For example:
+
+\verb!typeAnalysis/typeAnalysis.y contains 2 shift/reduce conflicts.!
+
+These are normal, and the bison++ parser automatically resolves these conflicts
+in a sensible way.
+
+
+\subsection{Where the Makefile Rules Are} 
+The Makefile is composed of make rules
+that come from a variety of different sources:
+
+\begin{itemize}
+\item The core rules are in the top level \texttt{Makefile.in} file, 
+\item Machine-specific rules are in the respective machine directory 
+	with the extension \texttt{.rules};
+      e.g., \texttt{machine/sparc/sparc.rules},
+\item Instrumentation rules are in a subdirectory \texttt{pathfinder/make.rules}
+	under the respective instrumentation directory; e.g.,
+	\texttt{pathfinder/sparc.NET.direct/pathfinder/make.rules}. 
+\end{itemize}
+
+
+\section{The \walk\ Regression Test Suite}
+The \walk\ framework includes a set of regression tests for
+generated interpreters.
+Tests have been written for the SPARC emulator only.
+
+The script that is used for testing an interpreter is called 
+\texttt{dynamic/test/interp-regression.tcl}.
+This is a Tcl script that allows new tests to be added easily.
+Existing tests can also be modified easily.
+Each test includes the test's name and expected result.
+The script runs each test and compares its output against that expected.
+If these are not the same, it reports the failure and gives the actual result.
+The default is to run all tests,
+but you can specify which tests to run,
+or which to skip, by giving a regular expression pattern
+that is matched against test names.
+At the end of all the tests, there is a report
+on the number of tests run, and how many passed, failed, or were skipped.
+
+The tests each run one of the SPEC95 benchmark programs.
+Up to four regression tests can be run for each SPEC95 program.
+Both optimized (-O4) and unoptimized (-O) versions of each program are run.
+It is also possible to run each version of the program
+using both the SPEC95 ``test'' and ``reference'' data sets.
+By default, only the ``test'' data set is used
+since it requires less time.
+The other tests that use the ``reference'' data set
+are marked as having the ``refInput'' contraint;
+they are only run if you specify \texttt{-constraints refInput}
+on the command line that runs the regression tests (see below).
+
+The expected output of each test
+is the total number of instructions executed.
+This count is sensitive to the specific versions of the shared libraries that
+are used.
+As a result, you can expect the tests to fail if they are run on
+a machine other than that used to get the original expected instruction count.
+We used a Sun 420R with 4 CPUs and 4GB of memory, running Solaris 8. 
+
+
+\subsection{Running the Regression Tests} 
+Tests can be run sequentially (one after another) or in parallel.
+This section discusses how to run the tests sequentially.
+Section~\ref{sec-mt-tests} describes how to
+run the tests concurrently.
+
+To run all SPARC interpreter tests using the ``test'' data sets (the default):
+\begin{verbatim}
+    $ cd <workspace>
+    $ cd dynamic/test
+    $ tclsh interp-regression.test sparc
+\end{verbatim}
+
+To run only the SPARC interpreter tests that run the SPEC95 ``go'' program,
+you can specify a pattern on the command line.
+Only tests (``test'' data sets only)
+with names that match the pattern are run:
+\begin{verbatim}
+    cd dynamic/test
+    tclsh interp-regression.test sparc -match 'go*'
+\end{verbatim}
+
+To skip all SPARC interpreter tests whose names match a pattern
+(again ``test'' data sets only), run:
+\begin{verbatim}
+    cd dynamic/test
+    tclsh interp-regression.test sparc -skip 'go* ijpeg*'
+\end{verbatim}
+
+To run all SPARC interpreter tests
+including those that use the ``reference'' data sets:
+\begin{verbatim}
+    cd dynamic/test
+    tclsh interp-regression.test sparc -constraints refInput
+\end{verbatim}
+
+
+\subsection{Running the Tests in Parallel} 
+\label{sec-mt-tests}
+
+To run the tests in parallel,
+the two scripts \texttt{dynamic/test/mt-tests.tcl}
+and \texttt{dynamic/test/summarize-mt-tests.tcl}
+are used.
+\texttt{mt-tests.tcl} takes the same command line arguments
+as \texttt{interp-regression.tcl}
+and forks processes to do the various tests in parallel.
+It creates a directory under
+\texttt{dynamic/test} with a name like \texttt{walktest-Oct-24-2001-19:15:06}
+that contains an ``*.out'' file holding the output
+from each of the forked tests.
+One such file, for example, might be \texttt{go.v8.base.test.out}.
+
+The second script \texttt{summarize-mt-tests.tcl}
+creates a file that summarizes the results of all the tests.
+It takes one command line argument,
+the name of the directory created by \texttt{mt-tests.tcl},
+and creates a file \texttt{summary.txt} in that
+directory with the concatenated results of the various tests.
+
+For example, to run all SPARC interpreter tests except for ``go''
+using the default ``test'' data sets, do the following.
+
+\begin{verbatim}
+    $ cd <workspace>/dynamic/test
+    $ tclsh mt-tests.tcl sparc -skip 'go*'
+    Parallel Walkabout tests
+    Writing results into directory walktest-Oct-24-2001-16:10:44
+    Forked process 7952 to execute test compress.v8.peak.test
+    Forked process 7953 to execute test compress.v8.base.test
+    Forked process 7954 to execute test perl.v8.peak.test
+    Forked process 7955 to execute test perl.v8.base.test
+    Forked process 7956 to execute test go.v8.peak.test
+    Forked process 7957 to execute test go.v8.base.test
+    Forked process 7958 to execute test ijpeg.v8.peak.test
+    Forked process 7964 to execute test ijpeg.v8.base.test
+    $ tclsh summarize-mt-tests.tcl walktest-Oct-24-2001-16:10:44
+    Summarizing parallel Walkabout test results into walktest-Oct-24-2001-16:10:44/summary.txt
+    appending file compress.v8.base.test.out
+    ...
+    $ vi walktest-Oct-24-2001-16:10:44/summary.txt
+\end{verbatim}
+

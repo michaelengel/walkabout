@@ -1,0 +1,149 @@
+%
+% Copyright (C) 2001, Sun Microsystems, Inc
+%
+% See the file "LICENSE.TERMS" for information on usage and
+% redistribution of this file, and for a DISCLAIMER OF ALL
+% WARRANTIES.
+%
+
+\documentclass[11pt,letter]{book}
+\usepackage{times}
+
+% attempting to change margins, but top lines may get messed up
+% Seems to work OK now... needed to be before call to fancyheadings
+\textwidth 6.0in
+\oddsidemargin  0.125in 
+\evensidemargin  -0.1875in
+
+% Make paragraph indentation zero and add extra space between paragraphs
+\setlength{\parindent}{0cm}
+\setlength{\parskip}{0.5em}
+
+% header and footer layout
+\usepackage{inputs/fancyheadings}
+\usepackage{ifthen}
+\pagestyle{fancy}
+\renewcommand{\chaptermark}[1]{\markboth{#1}{#1}}
+\renewcommand{\sectionmark}[1]{\markright{\thesection\ #1}}
+\lhead[\fancyplain{}{\bf\thepage}]{\fancyplain{}{\bf\rightmark}}
+\rhead[\fancyplain{}{\bf\leftmark}]{\fancyplain{}{\bf\thepage}}
+\cfoot{}
+
+% verbatim input of files and postscript files
+\usepackage{verbatim}	% needed for smallverbatim and fnverbatim
+\newenvironment{smallverbatim}{\small\verbatim}{\endverbatim}
+\newenvironment{fnverbatim}{\footnotesize\verbatim}{\endverbatim}
+
+\usepackage{graphics}
+\usepackage{url}
+\usepackage{epsfig}
+
+% allow figures of 90% the size of the page, and 10% text on the page
+\renewcommand{\floatpagefraction}{0.9}
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.1}
+\renewcommand{\textfraction}{0.1}
+
+% try to minimize the number of orphans and widows
+\pretolerance=500
+\tolerance=10000
+\brokenpenalty=10000
+\widowpenalty=10000
+\clubpenalty=10000
+
+% figure commands
+\newcommand{\centerfigbegin}{\begin{figure}[htp] \begin{center}}
+\newcommand{\centerfigend}[2]{{\small \caption{\label{#1} {#2}}} \end{center} \end{figure} }
+
+\newcommand{\psfigbegin}[2]{\begin{figure}[htp] \centerline{\psfig{figure={#1},height={#2}}} }
+\newcommand{\psfigend}[2]{{\small \caption{\label{#1} {#2}}} \end{figure} }
+
+% new latex environments
+\newtheorem{definition}{Definition}
+
+% useful shortcuts 
+\newcommand{\walk}{Walkabout}
+\newcommand{\uqbt}{{\bf UQBT}}
+
+\makeindex
+
+
+\begin{document}
+\title{\Large \bf Walkabout \\ A Framework for Experimental Dynamic 
+	Binary Translation}
+\author{
+{\bf Investigators} \\
+	Cristina Cifuentes \\
+	Brian Lewis \\ \\
+{\bf Interns} \\
+	May - Aug 2001: David Ung \\
+	May - Aug 2001: Bernard Wong \\
+	Jan - Jun 2001: Nathan Keynes 
+}
+\date{
+	January 2002 \\ 
+    \copyright 2001-2002, Sun Microsystems, Inc }
+\maketitle
+
+
+\section*{Abstract}
+
+Dynamic compilation techniques have found a renaissance in recent  
+years due to their applicability to performance improvements 
+of running Java-based code. 
+Techniques originally developed for object-oriented language virtual 
+machines are now commonly used in Java virtual machines and Java 
+just-in-time compilers. 
+Application of such techniques to the process of binary translation 
+has also been done in recent years, mainly in the form of 
+binary optimizers rather than binary translators. 
+
+The \walk\ project proposes dynamic binary translation techniques 
+based on properties of retargetability, ease of experimentation, 
+separation of machine-dependent from machine-independent concerns, 
+and good debugging support.  
+\walk\ is a framework for experimenting with dynamic binary
+translation ideas, as well as ideas in related areas, such as 
+interpreters, instrumentation tools, optimization and more. 
+
+
+% If you want all the chapters to be included, set the boolean "all" to be 
+% true, else, list the chapter you are interested in in the "else" brackets.
+
+\newboolean{all}
+\setboolean{all}{true}
+
+\ifthenelse{\boolean{all}}
+{
+\tableofcontents
+\listoffigures
+
+	\input{preface.tex}
+
+	\input{introduction.tex}	% general aims and framework 
+
+	\input{emulator.tex}		% interpreter generation
+
+	\input{instrument.tex} 		% instrumentation specification
+
+	\input{pathfinder.tex} 		% sparc to sparc translation tool 
+
+	\input{debugger.tex}		% the Java-based debugger interface
+
+\appendix
+    \input{apdx-config.tex}  	% configuration notes (how to compile walkabout)
+
+}{
+% This is the "else" set of brackets
+
+	\input{apdx-config.tex}
+}
+
+
+\bibliography{/home/cristina/tex/biblio/cristina,/home/cristina/tex/biblio/translation}
+\bibliographystyle{plain}
+\addcontentsline{toc}{chapter}{Bibliography}
+
+
+\end{document}
+

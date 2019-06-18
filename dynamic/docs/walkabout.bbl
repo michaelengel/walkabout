@@ -1,0 +1,163 @@
+\begin{thebibliography}{10}
+
+\bibitem{Bala00}
+V.~Bala, E.~Duesterwald, and S.~Banerjia.
+\newblock Dynamo: A transparent dynamic optimization system.
+\newblock In {\em Proceedings of the {ACM} {SIGPLAN}'00 Conference on
+  Programming Language Design and Implementation}, pages 1--12, Vancouver,
+  Canada, June 2000. {ACM P}ress.
+
+\bibitem{Chen00}
+W.~Chen, S.~Lerner, R.~Chaiken, and D.~Gillies.
+\newblock Mojo: A dynamic optimization system.
+\newblock In {\em Proceedings of the Third {ACM} Workshop on Feedback-Directed
+  and Dynamic Optimization}, Monterey, California, December 2000.
+
+\bibitem{Cifu01e}
+C.~Cifuentes, , M.~Van Emmerik, N.~Ramsey, and B.~Lewis.
+\newblock Experience in the design, implementation and use of a retargetable
+  static binary translation framework.
+\newblock Technical report, Sun Microsytems Laboratories, Palo Alto, {CA}
+  94303, December 2001.
+
+\bibitem{Cifu00e}
+C.~Cifuentes and M.~Van Emmerik.
+\newblock {UQBT}: Adaptable binary translation at low cost.
+\newblock {\em Computer}, 33(3):60--66, March 2000.
+
+\bibitem{Cifu01f}
+C.~Cifuentes, M.~Van Emmerik, N.~Ramsey, and B.~Lewis.
+\newblock The {U}niversity of {Q}ueensland {B}inary {T}ranslator ({UQBT})
+  framework, December 2001.
+\newblock Documentation book of the UQBT distribution, available from
+  \url{http://www.itee.uq.edu.au/csm/uqbt.html}.
+
+\bibitem{Deut84}
+Peter Deutsch and Alan~M. Schiffman.
+\newblock Efficient implementation of the smalltalk-80 system.
+\newblock In {\em Conference Record of the 11th Annual ACM Symposium on
+  Principles of Programming Languages}, pages 297--302. ACM, ACM, January 1984.
+
+\bibitem{Dec94}
+Digital.
+\newblock {OM} and {ATOM}.
+\newblock \url{http://www.research.digital.com/wrl/projects/om/om.html}, 1994.
+\newblock Digital Western Research Labs.
+
+\bibitem{Dec95}
+Digital.
+\newblock Freeport {E}xpress.
+\newblock \url{http://www.novalink.com/freeport-express}, 1995.
+
+\bibitem{Ebci96}
+K.~Ebcioglu and E.~Altman.
+\newblock {DAISY}: Dynamic compilation for 100\% architectural compatibility.
+\newblock Technical Report {RC 20538}, {IBM}, {IBM T.J. W}atson Research
+  Center, Yorktown Heights, New York, August 1996.
+
+\bibitem{Eust95}
+A.~Eustace and A.~Srivastava.
+\newblock {ATOM} a flexible interface for building high performance program
+  analysis tools.
+\newblock In {\em Proceedings {USENIX} Technical Conference}, pages 303--314,
+  January 1995.
+\newblock Also as Digital Western Research Laboratory Technical Note {TN-44},
+  July 1994.
+
+\bibitem{Gold83}
+Adele Goldberg and David Robson.
+\newblock {\em Smalltalk-80: The Language and Its Implementation}.
+\newblock Addison-Wesley, Reading, MA, 1983.
+
+\bibitem{Grie00}
+Robert Griesemer and Srdjan Mitrovic.
+\newblock A compiler for the {Java HotSpot} virtual machine.
+\newblock In L{\'a}szl{\'o} B{\"o}sz{\"o}rm{\'e}nyi, Jurg Gutknecht, and Gustav
+  Pomberger, editors, {\em The School of {Niklaus Wirth}: The Art of
+  Simplicity}, pages ??--?? Morgan Kaufmann Publishers, Los Altos, CA 94022,
+  USA, 2000.
+
+\bibitem{Holz97}
+U.~Holzle, L.~Bak, S.~Grarup, R.~Griesemer, and S.~Mitrovic.
+\newblock Java on steroids: Sun's high-performance java implementation, August
+  1997.
+
+\bibitem{Holz94}
+Urs Holzle.
+\newblock Adaptive optimization for {SELF}: Reconciling high performance with
+  exploratory programming.
+\newblock Thesis CS-TR-94-1520, Stanford University, Department of Computer
+  Science, August 1994.
+
+\bibitem{Hook97}
+R.J. Hookway and M.A. Herdeg.
+\newblock Digital {FX}!32: Combining emulation and binary translation.
+\newblock {\em Digital Technical Journal}, 9(1):3--12, 1997.
+
+\bibitem{Laru94}
+J.R. Larus and T.~Ball.
+\newblock Rewriting executable files to measure program behavior.
+\newblock {\em Software -- Practice and Experience}, 24(2):197--218, February
+  1994.
+
+\bibitem{Laru95}
+J.R. Larus and E.~Schnarr.
+\newblock {EEL}: Machine-independent executable editing.
+\newblock In {\em SIGPLAN Conference on Programming Languages, Design and
+  Implementation}, pages 291--300, June 1995.
+
+\bibitem{Pale01}
+Michael Paleczny, Chnstopher Vick, and Cliff Click.
+\newblock The java{$HotSpot{^{TM}}$} server compiler.
+\newblock In {\em Proceedings of the {$Java{^{TM}}$} Virtual Machine Research
+  and Technology Symposium ({JVM}-01)}, pages 1--12, Berkeley, USA, April
+  ~23--24 2001. USENIX Association.
+
+\bibitem{Reev00}
+C.~Reeve, D.~Deaver, R.~Gorton, and B.~Yadavalli.
+\newblock Wiggins/redstone (wr): A dynamic optimization and specialization
+  tool.
+\newblock Unpublished manuscript, 2000.
+
+\bibitem{Schn96}
+E.~Schnarr and J.R. Larus.
+\newblock Instruction scheduling and executable editing.
+\newblock In {\em Workshop on Compiler Support for System Software {(WCSSS)}},
+  pages 288--297, Tucson, {AZ}, February 1996.
+
+\bibitem{Scot01}
+K.~Scott and J.W. Davidson.
+\newblock Software security using software dynamic translation.
+\newblock Technical Report {CS-2001-29}, University of Virginia, Department of
+  Computer Science, Charlotesville, {VA}, November 2001.
+
+\bibitem{Sriv01}
+A.~Srivastava, A.~Edwards, and H.~Vo.
+\newblock Vulcan: Binary transformation in a distributed environment.
+\newblock Technical Report {MSR-TR}-2001-50, Microsoft Research, One Microsoft
+  Way, Redmond, {WA} 98052, April 2001.
+
+\bibitem{Sriv94b}
+A.~Srivastava and A.~Eustace.
+\newblock {ATOM}: A system for building customized program analysis tools.
+\newblock Technical Report 94/2, Digital Western Research Laboratory, 250
+  University Avenue, Palo Alto, CA 94301, March 1994.
+
+\bibitem{Thom96}
+T.~Thompson.
+\newblock An {A}lpha in {PC} clothing.
+\newblock {\em Byte}, pages 195--196, February 1996.
+
+\bibitem{Cifu00g}
+D.~Ung and C.~Cifuentes.
+\newblock Optimising hot paths in a dynamic binary translator.
+\newblock In {\em Proceedings of the Second Workshop on Binary Translation},
+  Philadelphia, Pennsylvania, October 19 2000.
+
+\bibitem{Unga87}
+D.~Ungar and R.B. Smith.
+\newblock {SELF}: The power of simplicity.
+\newblock In {\em Conference on Object-Oriented Programming Systems, Languages
+  and Applications}, pages 227--241. {ACM} Press, October 1987.
+
+\end{thebibliography}
